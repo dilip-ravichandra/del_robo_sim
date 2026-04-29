@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: deliverybot-sim
+    env: python
+    region: oregon
+    rootDir: sim
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: MONGO_URI
+        sync: false         # set this in the Render dashboard
+      - key: DB_NAME
+        value: deliverybot
+      - key: JWT_SECRET
+        sync: false         # set a strong random secret in Render dashboard
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASS
+        sync: false

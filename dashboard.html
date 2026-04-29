@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeliveryBot — Control Center</title>
+  <link rel="stylesheet" href="variables.css">
+  <!-- <link rel="stylesheet" href="css/animations.css"> -->
+  <!-- <link rel="stylesheet" href="css/components.css"> -->
+  <!-- <link rel="stylesheet" href="css/dashboard.css"> -->
+</head>
+<body class="dashboard-page">
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <div class="app-shell">
+
+    <!-- ════════════════════ SIDEBAR ════════════════════ -->
+    <aside class="sidebar anim-slide-left">
+      <div class="sidebar-logo">
+        <div class="logo-mark">
+          <div class="logo-icon">🤖</div>
+          <div class="logo-text">
+            <div class="logo-name">DeliveryBot</div>
+            <div class="logo-sub">CAMPUS DELIVERY</div>
+          </div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="sidebar-section-label">Main</div>
+
+        <a class="nav-item active" onclick="showView('dashboard')" data-view="dashboard">
+          <span class="nav-icon">⬡</span>
+          <span>Dashboard</span>
+        </a>
+
+        <a class="nav-item" onclick="showView('deliveries')" data-view="deliveries">
+          <span class="nav-icon">📦</span>
+          <span>Deliveries</span>
+          <span class="nav-badge" id="pending-badge">3</span>
+        </a>
+
+        <a class="nav-item" onclick="showView('analytics')" data-view="analytics">
+          <span class="nav-icon">📊</span>
+          <span>Analytics</span>
+        </a>
+
+        <div class="sidebar-section-label">System</div>
+
+        <a class="nav-item" onclick="showView('settings')" data-view="settings">
+          <span class="nav-icon">⚙️</span>
+          <span>Settings</span>
+        </a>
+
+        <a class="nav-item" onclick="goLogout()">
+          <span class="nav-icon">🚪</span>
+          <span>Sign Out</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-user" onclick="showView('settings')">
+          <div class="user-avatar" id="sidebar-avatar">A</div>
+          <div class="user-info">
+            <div class="user-name" id="sidebar-name">Admin User</div>
+            <div class="user-role" id="sidebar-role">admin</div>
+          </div>
+          <span style="color:rgba(255,255,255,0.3);font-size:14px">⋯</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ════════════════════ TOP BAR ════════════════════ -->
+    <header class="topbar anim-fade-in">
+      <div class="topbar-breadcrumb">
+        <div class="topbar-page" id="topbar-page">Dashboard</div>
+        <div class="topbar-sub" id="topbar-sub">Robot Control Center · ROBOT_01</div>
+      </div>
+
+      <div class="topbar-actions">
+        <!-- System status -->
+        <div class="sys-status">
+          <div class="sys-dot online" id="sys-dot"></div>
+          <span id="sys-status-text">ONLINE</span>
+        </div>
+
+        <!-- Notification bell -->
+        <div class="notif-btn" onclick="toggleNotifPanel()" title="Notifications">
+          🔔
+          <div class="notif-badge" id="notif-badge" style="display:none">0</div>
+        </div>
+
+        <!-- Avatar dropdown -->
+        <div class="dropdown">
+          <div class="topbar-avatar" id="topbar-avatar" onclick="toggleUserMenu()">A</div>
+          <div class="dropdown-menu" id="user-menu" style="display:none">
+            <div class="dropdown-item">👤 Profile</div>
+            <div class="dropdown-item">⚙️ Settings</div>
+            <div class="dropdown-sep"></div>
+            <div class="dropdown-item danger" onclick="goLogout()">🚪 Sign Out</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ════════════════════ MAIN CONTENT ════════════════════ -->
+    <main class="main-content" id="main-content">
+
+      <!-- ─────────── DASHBOARD VIEW ─────────── -->
+      <section class="view-section active" id="view-dashboard">
+
+        <!-- Row 1: Robot + Map + LIDAR -->
+        <div class="dash-grid grid-cols-12" style="margin-bottom:20px">
+
+          <!-- Robot Status Card -->
+          <div class="glass-card robot-status-card col-span-4 hover-lift anim-fade-up delay-100">
+            <div class="card-header">
+              <div class="card-title-group">
+                <div class="card-label">Robot Status</div>
+                <div class="card-title">ROBOT_01</div>
+              </div>
+              <span class="badge badge-idle" id="robot-badge">Idle</span>
+            </div>
+
+            <!-- Robot SVG visual -->
+            <div class="robot-visual-wrap">
+              <svg class="robot-body-svg" id="robot-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Body -->
+                <rect x="20" y="30" width="60" height="50" rx="10" fill="#1db954" fill-opacity="0.15" stroke="#1db954" stroke-width="1.5"/>
+                <!-- Head -->
+                <rect x="28" y="12" width="44" height="28" rx="8" fill="#1db954" fill-opacity="0.2" stroke="#1db954" stroke-width="1.5"/>
+                <!-- Eyes -->
+                <circle cx="38" cy="24" r="5" fill="#1db954" opacity="0.9"/>
+                <circle cx="62" cy="24" r="5" fill="#1db954" opacity="0.9"/>
+                <circle cx="38" cy="24" r="2" fill="#0d1f0d"/>
+                <circle cx="62" cy="24" r="2" fill="#0d1f0d"/>
+                <!-- Eye glow -->
+                <circle cx="38" cy="24" r="5" fill="#1db954" opacity="0.3">
+                  <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2s" repeatCount="indefinite"/>
+                </circle>
+                <circle cx="62" cy="24" r="5" fill="#1db954" opacity="0.3">
+                  <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2s" repeatCount="indefinite"/>
+                </circle>
+                <!-- Antenna -->
+                <line x1="50" y1="12" x2="50" y2="4" stroke="#1db954" stroke-width="1.5"/>
+                <circle cx="50" cy="4" r="2.5" fill="#1db954">
+                  <animate attributeName="opacity" values="1;0.2;1" dur="1.5s" repeatCount="indefinite"/>
+                </circle>
+                <!-- Wheels -->
+                <ellipse cx="22" cy="72" rx="8" ry="5" fill="#0d1f0d" stroke="#1db954" stroke-width="1"/>
+                <ellipse cx="78" cy="72" rx="8" ry="5" fill="#0d1f0d" stroke="#1db954" stroke-width="1"/>
+                <ellipse cx="22" cy="84" rx="8" ry="5" fill="#0d1f0d" stroke="#1db954" stroke-width="1"/>
+                <ellipse cx="78" cy="84" rx="8" ry="5" fill="#0d1f0d" stroke="#1db954" stroke-width="1"/>
+                <!-- Cargo box -->
+                <rect x="32" y="40" width="36" height="28" rx="4" fill="#1db954" fill-opacity="0.12" stroke="#1db954" stroke-width="1" stroke-dasharray="2 2"/>
+                <!-- Cargo label -->
+                <text x="50" y="57" text-anchor="middle" font-size="8" fill="#1db954" font-family="monospace" opacity="0.7">PKG</text>
+                <!-- Signal waves -->
+                <path d="M70 16 Q76 12 70 8" stroke="#1db954" stroke-width="1.2" fill="none" opacity="0.6">
+                  <animate attributeName="opacity" values="0.6;0.1;0.6" dur="2s" repeatCount="indefinite"/>
+                </path>
+                <path d="M72 18 Q82 12 72 6" stroke="#1db954" stroke-width="1.2" fill="none" opacity="0.4">
+                  <animate attributeName="opacity" values="0.4;0.05;0.4" dur="2s" begin="0.3s" repeatCount="indefinite"/>
+                </path>
+              </svg>
+              <div class="robot-status-label" id="robot-task-label">STANDING BY</div>
+            </div>
+
+            <!-- Battery -->
+            <div class="battery-wrap">
+              <div class="battery-header">
+                <span class="battery-label">⚡ BATTERY</span>
+                <span class="battery-pct" id="battery-pct">87%</span>
+              </div>
+              <div class="battery-bar-wrap">
+                <div class="battery-bar-fill" id="battery-fill" style="width:87%"></div>
+              </div>
+            </div>
+
+            <!-- Current task -->
+            <div class="current-task" id="current-task">
+              <div class="task-dot"></div>
+              <span class="task-text">Status: <span class="task-highlight" id="task-text">Awaiting dispatch</span></span>
+            </div>
+          </div>
+
+          <!-- Map Card -->
+          <div class="glass-card map-card col-span-5 hover-lift anim-fade-up delay-200">
+            <div class="map-card-header">
+              <div class="card-title-group">
+                <div class="card-label">Live Navigation</div>
+                <div class="card-title">Campus Map</div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <span class="badge badge-moving" id="map-status-badge" style="display:none">Moving</span>
+                <button class="btn btn-ghost btn-sm" onclick="resetMapView()">⊕ Reset</button>
+              </div>
+            </div>
+            <canvas id="delivery-map"></canvas>
+            <div class="map-legend">
+              <div class="legend-item"><div class="legend-dot" style="background:#1db954"></div>Robot</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#0ea5e9"></div>Destination</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Pickup</div>
+              <div class="legend-item"><div class="legend-dot" style="background:#e8efe6;border:1px solid #b8d4b2"></div>Buildings</div>
+            </div>
+          </div>
+
+          <!-- LIDAR Card -->
+          <div class="glass-card lidar-card col-span-3 hover-lift anim-fade-up delay-300">
+            <div class="card-header" style="width:100%">
+              <div class="card-title-group">
+                <div class="card-label">Sensor Array</div>
+                <div class="card-title">LIDAR</div>
+              </div>
+              <div class="card-icon green">📡</div>
+            </div>
+            <div class="lidar-canvas-wrap">
+              <canvas id="lidar-canvas" width="200" height="200"></canvas>
+              <div class="lidar-center-label">
+                <span class="lidar-range" id="lidar-range">--</span>
+                <span class="lidar-unit">RANGE m</span>
+              </div>
+            </div>
+            <div style="width:100%;display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;justify-content:space-between;font-size:12px">
+                <span style="color:var(--text-muted);font-family:var(--font-mono)">OBSTACLES</span>
+                <span style="font-weight:700;color:var(--text-primary)" id="obstacle-count">0</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill green" id="lidar-progress" style="width:0%"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-faint);font-family:var(--font-mono)">
+                <span>CLEAR</span>
+                <span>OBSTACLE</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 2: Delivery Control + Analytics + AI -->
+        <div class="dash-grid grid-cols-12">
+
+          <!-- Delivery Control Panel -->
+          <div class="glass-card control-card col-span-4 anim-fade-up delay-200">
+            <div class="card-header">
+              <div class="card-title-group">
+                <div class="card-label">Dispatch Console</div>
+                <div class="card-title">New Delivery</div>
+              </div>
+              <div class="card-icon green">📦</div>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Item / Package</label>
+              <input type="text" class="field-input" id="item-name" placeholder="e.g. Lab documents, Books">
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">From (Pickup)</label>
+              <select class="field-select" id="pickup-room">
+                <option value="">Select location...</option>
+                <option>Main Gate</option>
+                <option>Admin Block</option>
+                <option>Library</option>
+                <option>Canteen</option>
+                <option>Hostel A</option>
+                <option>Hostel B</option>
+                <option>Sports Complex</option>
+              </select>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">To (Destination)</label>
+              <select class="field-select" id="dest-room">
+                <option value="">Select destination...</option>
+                <option>Room 101 — Science Block</option>
+                <option>Room 205 — Engineering</option>
+                <option>Lab A — Chemistry</option>
+                <option>Lab B — Physics</option>
+                <option>Lab C — Computer</option>
+                <option>Room 301 — Arts Block</option>
+                <option>Room 410 — Admin</option>
+                <option>Medical Centre</option>
+                <option>Sports Complex</option>
+                <option>Hostel A</option>
+                <option>Hostel B</option>
+              </select>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Receiver Name</label>
+              <input type="text" class="field-input" id="receiver-name" placeholder="e.g. Prof. Sharma">
+            </div>
+
+            <div class="field-group">
+              <label class="field-label">Receiver Email <span style="font-size:10px;color:var(--accent);font-family:var(--font-mono)">(for unlock OTP)</span></label>
+              <input type="email" class="field-input" id="receiver-email" placeholder="receiver@campus.edu">
+            </div>
+
+            <div class="control-actions">
+              <button class="btn btn-primary btn-lg btn-full" id="btn-dispatch" onclick="startDelivery()">
+                🚀 Start Delivery
+              </button>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-warning btn-full" id="btn-recall" onclick="recallRobot()" disabled>
+                  ↩ Recall Robot
+                </button>
+                <button class="btn btn-danger btn-full" id="btn-estop" onclick="emergencyStop()" disabled>
+                  🛑 E-Stop
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Analytics mini cards + chart -->
+          <div class="col-span-5">
+            <div class="analytics-cards anim-fade-up delay-300" style="margin-bottom:20px">
+              <div class="glass-card analytic-card hover-lift">
+                <div class="card-label">Total Delivered</div>
+                <div class="stat-number" data-target="247" id="stat-total">0</div>
+                <div class="stat-delta up">↑ 12% this week</div>
+              </div>
+              <div class="glass-card analytic-card hover-lift">
+                <div class="card-label">Success Rate</div>
+                <div class="stat-number" data-target="96" id="stat-success">0<span class="stat-unit">%</span></div>
+                <div class="stat-delta up">↑ 2.4%</div>
+              </div>
+              <div class="glass-card analytic-card hover-lift">
+                <div class="card-label">Avg. Time</div>
+                <div class="stat-number" data-target="8" id="stat-avgtime">0<span class="stat-unit">min</span></div>
+                <div class="stat-delta down">↓ 1.2 min</div>
+              </div>
+            </div>
+
+            <!-- Area chart card -->
+            <div class="glass-card chart-card anim-fade-up delay-400">
+              <div class="card-header" style="margin-bottom:12px">
+                <div class="card-title-group">
+                  <div class="card-label">This Week</div>
+                  <div class="card-title">Delivery Volume</div>
+                </div>
+                <div style="font-family:var(--font-mono);font-size:12px;color:var(--text-muted)">7 days</div>
+              </div>
+              <canvas id="analytics-canvas"></canvas>
+            </div>
+          </div>
+
+          <!-- AI Prediction Panel -->
+          <div class="glass-card ai-card col-span-3 anim-fade-up delay-400">
+            <div class="card-header">
+              <div class="card-title-group">
+                <div class="card-label">Intelligence</div>
+                <div class="card-title">AI Insights</div>
+              </div>
+              <div class="card-icon purple">🧠</div>
+            </div>
+
+            <div class="ai-learning-status">
+              <div class="ai-learning-dot"></div>
+              <span class="ai-learning-text" id="ai-status-text">Model Improving</span>
+            </div>
+
+            <div class="ai-prediction-row">
+              <div>
+                <div class="ai-pred-label">Est. Delivery Time</div>
+              </div>
+              <div class="ai-pred-value" id="ai-eta">— min</div>
+            </div>
+
+            <div class="ai-prediction-row">
+              <div>
+                <div class="ai-pred-label">Confidence</div>
+              </div>
+              <div class="ai-pred-value" id="ai-conf">—%</div>
+            </div>
+
+            <div class="ai-prediction-row">
+              <div>
+                <div class="ai-pred-label">Route Efficiency</div>
+              </div>
+              <div class="ai-pred-value" id="ai-eff">—%</div>
+            </div>
+
+            <div style="margin-top:16px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <span style="font-size:12px;color:var(--text-muted);font-family:var(--font-mono)">LEARNING PROGRESS</span>
+                <span style="font-size:12px;font-weight:700;color:var(--accent)" id="ai-progress-pct">74%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill green" id="ai-progress-fill" style="width:74%"></div>
+              </div>
+            </div>
+
+            <div style="margin-top:16px">
+              <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-faint);margin-bottom:8px">RECENT ROUTES LEARNED</div>
+              <div style="display:flex;flex-direction:column;gap:4px" id="ai-routes">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ─────────── DELIVERIES VIEW ─────────── -->
+      <section class="view-section" id="view-deliveries">
+        <div class="deliveries-header">
+          <div>
+            <div style="font-family:var(--font-display);font-size:22px;font-weight:800;color:var(--text-primary)">All Deliveries</div>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:2px;font-family:var(--font-mono)" id="delivery-count-label">Loading...</div>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center">
+            <div class="delivery-filters">
+              <div class="filter-chip active" onclick="filterDeliveries('all',this)">All</div>
+              <div class="filter-chip" onclick="filterDeliveries('active',this)">Active</div>
+              <div class="filter-chip" onclick="filterDeliveries('completed',this)">Completed</div>
+              <div class="filter-chip" onclick="filterDeliveries('pending',this)">Pending</div>
+            </div>
+            <button class="btn btn-primary" onclick="showView('dashboard')">+ New Delivery</button>
+          </div>
+        </div>
+
+        <div class="deliveries-list" id="deliveries-list">
+          <!-- Populated by JS -->
+        </div>
+      </section>
+
+      <!-- ─────────── ANALYTICS VIEW ─────────── -->
+      <section class="view-section" id="view-analytics">
+        <div style="font-family:var(--font-display);font-size:22px;font-weight:800;margin-bottom:20px;color:var(--text-primary)">Analytics Overview</div>
+
+        <!-- Big stats row -->
+        <div class="dash-grid grid-cols-3" style="margin-bottom:20px">
+          <div class="glass-card analytic-card hover-lift anim-fade-up delay-100">
+            <div class="card-label">Total Deliveries</div>
+            <div class="stat-number" style="font-size:48px">247</div>
+            <div class="stat-delta up">↑ 12% vs last month</div>
+          </div>
+          <div class="glass-card analytic-card hover-lift anim-fade-up delay-200">
+            <div class="card-label">Distance Covered</div>
+            <div class="stat-number" style="font-size:48px">1.2<span class="stat-unit">km</span></div>
+            <div class="stat-delta up">↑ Today</div>
+          </div>
+          <div class="glass-card analytic-card hover-lift anim-fade-up delay-300">
+            <div class="card-label">Carbon Saved</div>
+            <div class="stat-number" style="font-size:48px">48<span class="stat-unit">g</span></div>
+            <div style="font-size:12px;color:var(--accent);margin-top:4px">🌿 vs human courier</div>
+          </div>
+        </div>
+
+        <div class="analytics-grid">
+          <div class="glass-card chart-card anim-fade-up delay-100">
+            <div class="card-header" style="margin-bottom:12px">
+              <div class="card-title-group">
+                <div class="card-label">Daily Deliveries</div>
+                <div class="card-title">30-Day Trend</div>
+              </div>
+            </div>
+            <canvas id="analytics-big-chart" style="width:100%;height:220px;display:block"></canvas>
+          </div>
+
+          <div class="glass-card chart-card anim-fade-up delay-200">
+            <div class="card-header" style="margin-bottom:12px">
+              <div class="card-title-group">
+                <div class="card-label">By Location</div>
+                <div class="card-title">Heatmap</div>
+              </div>
+            </div>
+            <canvas id="heatmap-chart" style="width:100%;height:220px;display:block"></canvas>
+          </div>
+
+          <div class="glass-card chart-card anim-fade-up delay-300">
+            <div class="card-header" style="margin-bottom:12px">
+              <div class="card-title-group">
+                <div class="card-label">Success vs Fail</div>
+                <div class="card-title">Outcome Rate</div>
+              </div>
+            </div>
+            <canvas id="donut-chart" style="width:100%;height:220px;display:block"></canvas>
+          </div>
+
+          <div class="glass-card chart-card anim-fade-up delay-400">
+            <div class="card-header" style="margin-bottom:12px">
+              <div class="card-title-group">
+                <div class="card-label">Speed</div>
+                <div class="card-title">Delivery Times</div>
+              </div>
+            </div>
+            <canvas id="time-chart" style="width:100%;height:220px;display:block"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────── SETTINGS VIEW ─────────── -->
+      <section class="view-section" id="view-settings">
+        <div style="font-family:var(--font-display);font-size:22px;font-weight:800;margin-bottom:20px;color:var(--text-primary)">Settings</div>
+
+        <div class="settings-grid">
+          <div class="glass-card settings-card anim-fade-up delay-100">
+            <div class="card-header"><div class="card-title-group">
+              <div class="card-label">Preferences</div>
+              <div class="card-title">System Settings</div>
+            </div></div>
+
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Auto-dispatch</div>
+                <div class="settings-desc">Automatically dispatch robot on new orders</div>
+              </div>
+              <div class="toggle on" onclick="toggleSetting(this)"></div>
+            </div>
+
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Sound Alerts</div>
+                <div class="settings-desc">Play audio on delivery events</div>
+              </div>
+              <div class="toggle" onclick="toggleSetting(this)"></div>
+            </div>
+
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Night Mode</div>
+                <div class="settings-desc">Reduce robot speed after 10 PM</div>
+              </div>
+              <div class="toggle on" onclick="toggleSetting(this)"></div>
+            </div>
+
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">AI Learning</div>
+                <div class="settings-desc">Allow route optimization learning</div>
+              </div>
+              <div class="toggle on" onclick="toggleSetting(this)"></div>
+            </div>
+          </div>
+
+          <div class="glass-card settings-card anim-fade-up delay-200">
+            <div class="card-header"><div class="card-title-group">
+              <div class="card-label">Account</div>
+              <div class="card-title">Profile</div>
+            </div></div>
+
+            <div class="field-group">
+              <label class="field-label">Display Name</label>
+              <input type="text" class="field-input" id="settings-name" value="Admin User">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Email</label>
+              <input type="email" class="field-input" id="settings-email" value="admin@campus.edu">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Department</label>
+              <select class="field-select" id="settings-dept">
+                <option>Administration</option>
+                <option>Engineering</option>
+                <option>Science</option>
+                <option>Arts</option>
+              </select>
+            </div>
+            <button class="btn btn-primary btn-full" onclick="saveSettings()">Save Changes</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ════════════════ EVENT FEED STRIP ════════════════ -->
+  <div id="event-feed" style="display:none;position:fixed;top:64px;left:240px;right:0;z-index:9990;padding:10px 20px 0;pointer-events:none">
+    <div id="event-feed-inner" style="display:flex;flex-direction:column;gap:6px;max-width:900px;margin:0 auto"></div>
+  </div>
+
+  <!-- ════════════════ PICKUP LOCK MODAL ════════════════ -->
+  <div id="pickup-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);z-index:9999;align-items:center;justify-content:center">
+    <div style="background:#0d1a0d;border:1px solid rgba(59,130,246,0.4);border-radius:16px;padding:36px 32px;max-width:420px;width:90%;text-align:center;box-shadow:0 0 60px rgba(59,130,246,0.18)">
+      <div id="pickup-icon" style="font-size:48px;margin-bottom:12px;transition:all .4s">🤖</div>
+      <div style="font-family:var(--font-display,sans-serif);font-size:22px;font-weight:800;color:#fff;margin-bottom:6px">Robot at Pickup</div>
+      <div style="font-size:13px;color:#888;margin-bottom:6px" id="pickup-item-label">Ready to receive package</div>
+      <div style="font-size:12px;color:rgba(59,130,246,0.9);margin-bottom:24px;font-family:var(--font-mono,monospace);letter-spacing:1px">ENTER CODE TO LOAD PACKAGE</div>
+
+      <div id="pickup-otp-hint" style="font-size:11px;color:var(--accent,#1db954);margin-bottom:16px;opacity:0.8"></div>
+
+      <div style="display:flex;gap:10px;justify-content:center;margin-bottom:16px" id="pickup-otp-inputs">
+        <input class="pickup-digit" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]"
+          style="width:48px;height:56px;text-align:center;font-size:22px;font-weight:700;border-radius:10px;border:2px solid rgba(59,130,246,0.35);background:rgba(59,130,246,0.07);color:#fff;font-family:var(--font-mono,monospace);outline:none;transition:border-color .2s">
+        <input class="pickup-digit" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]"
+          style="width:48px;height:56px;text-align:center;font-size:22px;font-weight:700;border-radius:10px;border:2px solid rgba(59,130,246,0.35);background:rgba(59,130,246,0.07);color:#fff;font-family:var(--font-mono,monospace);outline:none;transition:border-color .2s">
+        <input class="pickup-digit" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]"
+          style="width:48px;height:56px;text-align:center;font-size:22px;font-weight:700;border-radius:10px;border:2px solid rgba(59,130,246,0.35);background:rgba(59,130,246,0.07);color:#fff;font-family:var(--font-mono,monospace);outline:none;transition:border-color .2s">
+        <input class="pickup-digit" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]"
+          style="width:48px;height:56px;text-align:center;font-size:22px;font-weight:700;border-radius:10px;border:2px solid rgba(59,130,246,0.35);background:rgba(59,130,246,0.07);color:#fff;font-family:var(--font-mono,monospace);outline:none;transition:border-color .2s">
+        <input class="pickup-digit" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]"
+          style="width:48px;height:56px;text-align:center;font-size:22px;font-weight:700;border-radius:10px;border:2px solid rgba(59,130,246,0.35);background:rgba(59,130,246,0.07);color:#fff;font-family:var(--font-mono,monospace);outline:none;transition:border-color .2s">
+        <input class="pickup-digit" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]"
+          style="width:48px;height:56px;text-align:center;font-size:22px;font-weight:700;border-radius:10px;border:2px solid rgba(59,130,246,0.35);background:rgba(59,130,246,0.07);color:#fff;font-family:var(--font-mono,monospace);outline:none;transition:border-color .2s">
+      </div>
+
+      <div id="pickup-error" style="font-size:12px;color:#3b82f6;margin-bottom:12px;min-height:18px"></div>
+
+      <button onclick="submitPickupOTP()"
+        style="width:100%;padding:14px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.45);border-radius:10px;color:#60a5fa;font-family:var(--font-mono,monospace);font-size:13px;font-weight:700;cursor:pointer;letter-spacing:1px;transition:all .2s">
+        📦 LOAD PACKAGE
+      </button>
+      <div style="font-size:11px;color:#555;margin-top:12px">
+        Check your email for the pickup code
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════ DELIVERY LOCK MODAL ════════════════ -->
+  <div id="lock-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);z-index:9999;display:none;align-items:center;justify-content:center">
+    <div id="lock-modal" style="background:#0d1a0d;border:1px solid rgba(239,68,68,0.35);border-radius:16px;padding:36px 32px;max-width:420px;width:90%;text-align:center;box-shadow:0 0 60px rgba(239,68,68,0.15)">
+      <!-- Lock icon -->
+      <div id="lock-icon" style="font-size:48px;margin-bottom:12px;transition:all .4s">🔒</div>
+      <div style="font-family:var(--font-display,sans-serif);font-size:22px;font-weight:800;color:#fff;margin-bottom:6px">Delivery Locked</div>
+      <div style="font-size:13px;color:#888;margin-bottom:6px" id="lock-item-label">Package arrived at destination</div>
+      <div style="font-size:12px;color:rgba(239,68,68,0.8);margin-bottom:24px;font-family:var(--font-mono,monospace);letter-spacing:1px">ENTER UNLOCK CODE TO COLLECT</div>
+
+      <!-- Hint from email -->
+      <div id="lock-otp-hint" style="font-size:11px;color:var(--accent,#1db954);margin-bottom:16px;opacity:0.8"></div>
+
+      <!-- OTP inputs -->
+      <div style="display:flex;gap:10px;justify-content:center;margin-bottom:16px" id="lock-otp-inputs">
+        <input class="lock-digit" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]"
+          style="width:48px;height:56px;text-align:center;font-size:22px;font-weight:700;border-radius:10px;border:2px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.06);color:#fff;font-family:var(--font-mono,monospace);outline:none;transition:border-color .2s">
+        <input class="lock-digit" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]"
+          style="width:48px;height:56px;text-align:center;font-size:22px;font-weight:700;border-radius:10px;border:2px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.06);color:#fff;font-family:var(--font-mono,monospace);outline:none;transition:border-color .2s">
+        <input class="lock-digit" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]"
+          style="width:48px;height:56px;text-align:center;font-size:22px;font-weight:700;border-radius:10px;border:2px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.06);color:#fff;font-family:var(--font-mono,monospace);outline:none;transition:border-color .2s">
+        <input class="lock-digit" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]"
+          style="width:48px;height:56px;text-align:center;font-size:22px;font-weight:700;border-radius:10px;border:2px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.06);color:#fff;font-family:var(--font-mono,monospace);outline:none;transition:border-color .2s">
+        <input class="lock-digit" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]"
+          style="width:48px;height:56px;text-align:center;font-size:22px;font-weight:700;border-radius:10px;border:2px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.06);color:#fff;font-family:var(--font-mono,monospace);outline:none;transition:border-color .2s">
+        <input class="lock-digit" maxlength="1" type="text" inputmode="numeric" pattern="[0-9]"
+          style="width:48px;height:56px;text-align:center;font-size:22px;font-weight:700;border-radius:10px;border:2px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.06);color:#fff;font-family:var(--font-mono,monospace);outline:none;transition:border-color .2s">
+      </div>
+
+      <div id="lock-error" style="font-size:12px;color:#ef4444;margin-bottom:12px;min-height:18px"></div>
+
+      <button id="btn-unlock" onclick="submitUnlockOTP()"
+        style="width:100%;padding:14px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);border-radius:10px;color:#ef4444;font-family:var(--font-mono,monospace);font-size:13px;font-weight:700;cursor:pointer;letter-spacing:1px;transition:all .2s">
+        🔓 UNLOCK DELIVERY
+      </button>
+      <div style="font-size:11px;color:#555;margin-top:12px">
+        Check your email for the unlock code
+      </div>
+    </div>
+  </div>
+
+  <script src="map.js"></script>
+  <script src="analytics.js"></script>
+  <script src="dashboard.js"></script>
+  <!-- Optional: remove next line if you don't want Python simulation -->
+  <script src="sim_connect.js"></script>
+  <!-- In-app chatbot assistant -->
+  <script src="chatbot.js"></script>
+</body>
+</html>

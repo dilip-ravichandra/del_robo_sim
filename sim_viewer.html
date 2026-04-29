@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeliveryBot — AI Simulation Monitor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap');
+
+:root{
+  --bg:#060d06; --panel:#0d1a0d; --border:rgba(29,185,84,0.15);
+  --accent:#1db954; --accent2:rgba(29,185,84,0.08);
+  --text:#c8e6c8; --muted:#4a784a; --faint:#2a482a;
+  --err:#ef4444; --warn:#f59e0b; --blue:#0ea5e9;
+  --mono:'JetBrains Mono',monospace; --disp:'Syne',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;overflow:hidden}
+
+/* ── Layout ── */
+.shell{display:grid;grid-template-columns:1fr 300px;grid-template-rows:48px 1fr 200px;height:100vh;gap:1px;background:var(--faint)}
+.topbar{grid-column:1/-1;background:var(--panel);display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid var(--border)}
+.map-panel{background:var(--bg);position:relative;overflow:hidden}
+.side-panel{background:var(--panel);display:flex;flex-direction:column;gap:1px;overflow:hidden}
+.bottom-bar{grid-column:1/-1;background:var(--panel);display:flex;gap:1px;overflow:hidden}
+
+/* ── Topbar ── */
+.tb-logo{display:flex;align-items:center;gap:10px}
+.tb-logo-icon{font-size:22px;filter:drop-shadow(0 0 6px rgba(29,185,84,0.6))}
+.tb-title{font-family:var(--disp);font-size:17px;font-weight:800;color:#fff;letter-spacing:-0.3px}
+.tb-sub{font-size:10px;color:var(--muted);letter-spacing:2px}
+.tb-status{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:blink 1.8s ease-in-out infinite}
+@keyframes blink{0%,100%{box-shadow:0 0 0 2px rgba(29,185,84,.25)}50%{box-shadow:0 0 0 4px rgba(29,185,84,.1)}}
+.status-dot.offline{background:var(--err);animation:none}
+.tb-controls{display:flex;gap:8px;align-items:center}
+.tb-btn{padding:6px 14px;border-radius:5px;font-family:var(--mono);font-size:11px;font-weight:600;cursor:pointer;transition:all .2s;letter-spacing:.5px;border:1px solid}
+.tb-btn.green{background:rgba(29,185,84,.12);color:var(--accent);border-color:rgba(29,185,84,.3)}
+.tb-btn.green:hover{background:rgba(29,185,84,.22);border-color:var(--accent)}
+.tb-btn.yellow{background:rgba(245,158,11,.1);color:var(--warn);border-color:rgba(245,158,11,.25)}
+.tb-btn.yellow:hover{background:rgba(245,158,11,.2)}
+.tb-btn.red{background:rgba(239,68,68,.1);color:var(--err);border-color:rgba(239,68,68,.25)}
+.tb-btn.red:hover{background:rgba(239,68,68,.2)}
+.tb-btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* ── Map canvas ── */
+#sim-map{display:block;width:100%;height:100%}
+.map-overlay{position:absolute;top:10px;left:10px;pointer-events:none;display:flex;flex-direction:column;gap:6px}
+.map-tag{background:rgba(6,13,6,.8);border:1px solid var(--border);border-radius:5px;padding:4px 10px;font-size:10px;color:var(--accent);letter-spacing:1px}
+
+/* ── Side panel sections ── */
+.sp-section{padding:12px 14px;border-bottom:1px solid var(--faint)}
+.sp-section:last-child{border-bottom:none;flex:1}
+.sp-hdr{font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.sp-hdr span{color:var(--accent);font-size:10px;font-weight:600}
+
+/* Robot status */
+.rs-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--faint)}
+.rs-row:last-child{border-bottom:none}
+.rs-key{font-size:10px;color:var(--muted)}
+.rs-val{font-size:12px;font-weight:600;color:#fff}
+.rs-val.green{color:var(--accent)}
+.rs-val.yellow{color:var(--warn)}
+.rs-val.red{color:var(--err)}
+.rs-val.blue{color:var(--blue)}
+.batt-bar{width:100%;height:4px;background:var(--faint);border-radius:99px;margin-top:6px;overflow:hidden}
+.batt-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#4ec94e,var(--accent));transition:width .8s}
+
+/* LIDAR */
+.lidar-wrap{display:flex;justify-content:center;margin:4px 0}
+#lidar-mini{border-radius:50%;background:radial-gradient(circle,#0a180a,#060d06);box-shadow:0 0 0 1px var(--border)}
+
+/* AI panel */
+.ai-row{display:flex;justify-content:space-between;margin-bottom:6px;align-items:center}
+.ai-label{font-size:10px;color:var(--muted)}
+.ai-bar{flex:1;height:3px;background:var(--faint);border-radius:99px;margin:0 8px;overflow:hidden}
+.ai-bar-fill{height:100%;background:linear-gradient(90deg,#a855f7,#7c3aed);border-radius:99px;transition:width .8s}
+.ai-pct{font-size:10px;font-weight:600;color:#a855f7;min-width:30px;text-align:right}
+
+/* Bottom bar */
+.log-panel{flex:1;padding:10px 14px;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
+.log-hdr{font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between}
+.log-line{font-size:11px;color:var(--text);display:flex;gap:8px;align-items:baseline}
+.log-line .ts{color:var(--muted);font-size:10px;flex-shrink:0}
+.log-line .msg{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.log-line.info .msg{color:var(--accent)}
+.log-line.warn .msg{color:var(--warn)}
+.log-line.err  .msg{color:var(--err)}
+.log-line.blue .msg{color:var(--blue)}
+
+/* Camera panel */
+.cam-panel{width:240px;padding:10px 14px;border-left:1px solid var(--faint)}
+.cam-canvas-wrap{position:relative;margin:6px 0}
+#cam-canvas{display:block;width:100%;border-radius:6px;background:#000;border:1px solid var(--faint)}
+.cam-label{position:absolute;bottom:6px;left:6px;font-size:9px;color:rgba(29,185,84,.7);letter-spacing:1px}
+.cam-detect{margin-top:6px;display:flex;flex-direction:column;gap:3px}
+.cam-obj{display:flex;justify-content:space-between;font-size:10px;padding:2px 6px;background:rgba(29,185,84,.06);border-radius:3px;border:1px solid var(--faint)}
+
+/* Dispatch panel */
+.dispatch-panel{width:220px;padding:10px 14px;border-left:1px solid var(--faint)}
+.dp-field{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
+.dp-label{font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase}
+.dp-input,.dp-select{
+  background:rgba(29,185,84,.05);border:1px solid var(--faint);border-radius:4px;
+  padding:6px 8px;font-family:var(--mono);font-size:11px;color:var(--text);
+  transition:border-color .2s;outline:none;width:100%
+}
+.dp-input:focus,.dp-select:focus{border-color:rgba(29,185,84,.4);box-shadow:0 0 0 2px rgba(29,185,84,.08)}
+.dp-select option{background:#0d1a0d}
+.dp-btn{width:100%;padding:8px;border-radius:4px;font-family:var(--mono);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.5px;border:1px solid;margin-top:4px}
+.dp-btn.start{background:rgba(29,185,84,.12);color:var(--accent);border-color:rgba(29,185,84,.3)}
+.dp-btn.start:hover:not(:disabled){background:rgba(29,185,84,.22)}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--faint);border-radius:99px}
+
+/* connection badge */
+#conn-badge{font-size:10px;padding:3px 8px;border-radius:99px;font-weight:600;letter-spacing:.5px}
+#conn-badge.connected{background:rgba(29,185,84,.12);color:var(--accent);border:1px solid rgba(29,185,84,.25)}
+#conn-badge.disconnected{background:rgba(239,68,68,.1);color:var(--err);border:1px solid rgba(239,68,68,.2)}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Top bar ── -->
+  <header class="topbar">
+    <div class="tb-logo">
+      <span class="tb-logo-icon">🤖</span>
+      <div>
+        <div class="tb-title">DeliveryBot</div>
+        <div class="tb-sub">AI SIMULATION MONITOR</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <div class="tb-status">
+        <div class="status-dot" id="sys-dot"></div>
+        <span id="sys-text">Connecting…</span>
+      </div>
+      <span id="conn-badge" class="disconnected">OFFLINE</span>
+    </div>
+    <div class="tb-controls">
+      <button class="tb-btn green" id="btn-start" onclick="cmdStart()" disabled>▶ Dispatch</button>
+      <button class="tb-btn yellow" id="btn-recall" onclick="cmdRecall()" disabled>↩ Recall</button>
+      <button class="tb-btn red" id="btn-stop" onclick="cmdStop()" disabled>■ E-Stop</button>
+    </div>
+  </header>
+
+  <!-- ── Map ── -->
+  <div class="map-panel">
+    <canvas id="sim-map"></canvas>
+    <div class="map-overlay">
+      <div class="map-tag" id="map-status-tag">IDLE</div>
+      <div class="map-tag" id="map-task-tag">Awaiting dispatch</div>
+    </div>
+    <!-- Lock overlay banner -->
+    <div id="lock-banner" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      background:rgba(6,13,6,0.92);border:2px solid rgba(239,68,68,0.5);border-radius:14px;
+      padding:20px 28px;text-align:center;z-index:10;min-width:280px;
+      box-shadow:0 0 40px rgba(239,68,68,0.2)">
+      <div id="lock-banner-icon" style="font-size:36px;margin-bottom:8px">🔒</div>
+      <div style="font-family:'Syne',sans-serif;font-size:17px;font-weight:800;color:#fff;margin-bottom:4px">DELIVERY LOCKED</div>
+      <div style="font-size:11px;color:#ef4444;letter-spacing:2px;margin-bottom:12px" id="lock-banner-dest">Package at destination</div>
+      <div id="lock-banner-hint" style="font-size:11px;color:#4a784a;margin-bottom:14px"></div>
+      <div style="display:flex;gap:6px;justify-content:center;margin-bottom:10px" id="lock-banner-digits">
+        <input class="sv-lock-digit" maxlength="1" type="text" inputmode="numeric"
+          style="width:38px;height:44px;text-align:center;font-size:20px;font-weight:700;
+          border-radius:8px;border:2px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.06);
+          color:#fff;font-family:'JetBrains Mono',monospace;outline:none">
+        <input class="sv-lock-digit" maxlength="1" type="text" inputmode="numeric"
+          style="width:38px;height:44px;text-align:center;font-size:20px;font-weight:700;
+          border-radius:8px;border:2px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.06);
+          color:#fff;font-family:'JetBrains Mono',monospace;outline:none">
+        <input class="sv-lock-digit" maxlength="1" type="text" inputmode="numeric"
+          style="width:38px;height:44px;text-align:center;font-size:20px;font-weight:700;
+          border-radius:8px;border:2px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.06);
+          color:#fff;font-family:'JetBrains Mono',monospace;outline:none">
+        <input class="sv-lock-digit" maxlength="1" type="text" inputmode="numeric"
+          style="width:38px;height:44px;text-align:center;font-size:20px;font-weight:700;
+          border-radius:8px;border:2px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.06);
+          color:#fff;font-family:'JetBrains Mono',monospace;outline:none">
+        <input class="sv-lock-digit" maxlength="1" type="text" inputmode="numeric"
+          style="width:38px;height:44px;text-align:center;font-size:20px;font-weight:700;
+          border-radius:8px;border:2px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.06);
+          color:#fff;font-family:'JetBrains Mono',monospace;outline:none">
+        <input class="sv-lock-digit" maxlength="1" type="text" inputmode="numeric"
+          style="width:38px;height:44px;text-align:center;font-size:20px;font-weight:700;
+          border-radius:8px;border:2px solid rgba(239,68,68,0.3);background:rgba(239,68,68,0.06);
+          color:#fff;font-family:'JetBrains Mono',monospace;outline:none">
+      </div>
+      <div id="lock-banner-err" style="font-size:11px;color:#ef4444;min-height:16px;margin-bottom:8px"></div>
+      <button onclick="svUnlock()" style="width:100%;padding:10px;background:rgba(239,68,68,0.15);
+        border:1px solid rgba(239,68,68,0.4);border-radius:8px;color:#ef4444;
+        font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;
+        cursor:pointer;letter-spacing:1px">🔓 UNLOCK</button>
+    </div>
+  </div>
+
+  <!-- ── Side panel ── -->
+  <div class="side-panel">
+    <!-- Robot status -->
+    <div class="sp-section">
+      <div class="sp-hdr">Robot Status <span id="sp-status">IDLE</span></div>
+      <div class="rs-row"><span class="rs-key">Position</span><span class="rs-val" id="rs-pos">—</span></div>
+      <div class="rs-row"><span class="rs-key">Speed</span><span class="rs-val green" id="rs-speed">0.0 u/t</span></div>
+      <div class="rs-row"><span class="rs-key">ETA</span><span class="rs-val blue" id="rs-eta">—</span></div>
+      <div class="rs-row"><span class="rs-key">Phase</span><span class="rs-val" id="rs-phase">none</span></div>
+      <div class="rs-row">
+        <span class="rs-key">Battery</span>
+        <span class="rs-val green" id="rs-batt">87%</span>
+      </div>
+      <div class="batt-bar"><div class="batt-fill" id="batt-fill" style="width:87%"></div></div>
+    </div>
+
+    <!-- LIDAR mini -->
+    <div class="sp-section">
+      <div class="sp-hdr">LIDAR Sensor <span id="lidar-nearest">—m</span></div>
+      <div class="lidar-wrap">
+        <canvas id="lidar-mini" width="150" height="150"></canvas>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;margin-top:6px;color:var(--muted)">
+        <span>Obstacles: <b style="color:var(--text)" id="lidar-obs">0</b></span>
+        <span>Rays: 180</span>
+      </div>
+    </div>
+
+    <!-- AI info -->
+    <div class="sp-section" style="flex:1">
+      <div class="sp-hdr">AI Intelligence</div>
+      <div class="ai-row">
+        <span class="ai-label">Learning</span>
+        <div class="ai-bar"><div class="ai-bar-fill" id="ai-learn-bar" style="width:50%"></div></div>
+        <span class="ai-pct" id="ai-learn-pct">50%</span>
+      </div>
+      <div class="ai-row">
+        <span class="ai-label">Confidence</span>
+        <div class="ai-bar"><div class="ai-bar-fill" id="ai-conf-bar" style="width:0%"></div></div>
+        <span class="ai-pct" id="ai-conf-pct">0%</span>
+      </div>
+      <div class="ai-row">
+        <span class="ai-label">Efficiency</span>
+        <div class="ai-bar"><div class="ai-bar-fill" id="ai-eff-bar" style="width:0%"></div></div>
+        <span class="ai-pct" id="ai-eff-pct">0%</span>
+      </div>
+      <div style="font-size:9px;color:var(--muted);letter-spacing:1.5px;margin:8px 0 4px">ROUTE MEMORY</div>
+      <div id="ai-routes" style="display:flex;flex-direction:column;gap:3px"></div>
+    </div>
+  </div>
+
+  <!-- ── Bottom bar ── -->
+  <div class="bottom-bar">
+    <!-- Activity log -->
+    <div class="log-panel" id="log-panel">
+      <div class="log-hdr">Activity Log <span style="cursor:pointer;color:var(--muted)" onclick="clearLog()">Clear</span></div>
+    </div>
+
+    <!-- Camera feed -->
+    <div class="cam-panel">
+      <div class="sp-hdr">Camera Feed</div>
+      <div class="cam-canvas-wrap">
+        <canvas id="cam-canvas" width="210" height="120"></canvas>
+        <span class="cam-label">FRONT · 640×480</span>
+      </div>
+      <div class="cam-detect" id="cam-detect"></div>
+    </div>
+
+    <!-- Dispatch -->
+    <div class="dispatch-panel">
+      <div class="sp-hdr" style="margin-bottom:8px">Dispatch</div>
+      <div class="dp-field">
+        <span class="dp-label">Item</span>
+        <input class="dp-input" id="dp-item" placeholder="e.g. Lab documents">
+      </div>
+      <div class="dp-field">
+        <span class="dp-label">Pickup</span>
+        <select class="dp-select" id="dp-pickup">
+          <option>Admin Block</option><option>Library</option>
+          <option>Canteen</option><option>Main Gate</option>
+        </select>
+      </div>
+      <div class="dp-field">
+        <span class="dp-label">Destination</span>
+        <select class="dp-select" id="dp-dest">
+          <option>Library</option>
+          <option>Lab A — Chemistry</option><option>Lab B — Physics</option>
+          <option>Lab C — Computer</option><option>Canteen</option>
+          <option>Room 101 — Science Block</option><option>Room 205 — Engineering</option>
+          <option>Room 301 — Arts Block</option><option>Room 410 — Admin</option>
+          <option>Medical Centre</option><option>Hostel A</option>
+          <option>Hostel B</option><option>Sports Complex</option>
+          <option>Main Gate</option>
+        </select>
+      </div>
+      <div class="dp-field">
+        <span class="dp-label">Receiver Email</span>
+        <input class="dp-input" id="dp-receiver-email" type="email" placeholder="receiver@campus.edu">
+      </div>
+      <button class="dp-btn start" id="dp-btn" onclick="dispatchFromForm()">🚀 Start Delivery</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+// ── WebSocket connection ──────────────────────────────────────────────
+const WS_URL = 'ws://localhost:8000/ws';
+let   ws, lastState = null, reconnectTimer = null;
+
+function connect() {
+  try { ws = new WebSocket(WS_URL); }
+  catch { scheduleReconnect(); return; }
+
+  ws.onopen = () => {
+    setConnected(true);
+    log('WebSocket connected to Python simulation', 'info');
+  };
+  ws.onmessage = e => {
+    try {
+      const msg = JSON.parse(e.data);
+      if      (msg.type === 'state')            handleState(msg);
+      else if (msg.type === 'delivery_lock')    showLockBanner(msg);
+      else if (msg.type === 'delivery_unlocked') hideLockBanner(msg.message);
+      else if (msg.type === 'unlock_error')     showLockBannerErr(msg.message);
+    } catch {}
+  };
+  ws.onclose = () => {
+    setConnected(false);
+    scheduleReconnect();
+  };
+  ws.onerror = () => { ws.close(); };
+}
+
+function scheduleReconnect() {
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(connect, 3000);
+}
+
+function sendCmd(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN)
+    ws.send(JSON.stringify(obj));
+}
+
+function setConnected(on) {
+  const dot  = document.getElementById('sys-dot');
+  const txt  = document.getElementById('sys-text');
+  const badge = document.getElementById('conn-badge');
+  dot.className  = 'status-dot' + (on ? '' : ' offline');
+  txt.textContent = on ? 'ONLINE' : 'RECONNECTING...';
+  badge.className = on ? 'connected' : 'disconnected';
+  badge.textContent = on ? 'LIVE' : 'OFFLINE';
+  ['btn-start','btn-recall','btn-stop'].forEach(id =>
+    document.getElementById(id).disabled = !on
+  );
+}
+
+// ── State handling ─────────────────────────────────────────────────
+function handleState(s) {
+  lastState = s;
+  const r = s.robot;
+
+  // Topbar tags
+  const st = r.status.toUpperCase();
+  const stTag = document.getElementById('map-status-tag');
+  stTag.textContent = st;
+  stTag.style.color = statusColor(r.status);
+
+  document.getElementById('map-task-tag').textContent = r.task;
+
+  // Side panel robot status
+  document.getElementById('sp-status').textContent = st;
+  document.getElementById('rs-pos').textContent   = `(${Math.round(r.x)}, ${Math.round(r.y)})`;
+  document.getElementById('rs-speed').textContent = r.speed.toFixed(1) + ' u/t';
+  document.getElementById('rs-eta').textContent   = r.eta > 0 ? r.eta + ' min' : '—';
+  document.getElementById('rs-phase').textContent = r.phase || 'none';
+  const bpct = Math.round(r.battery);
+  document.getElementById('rs-batt').textContent  = bpct + '%';
+  document.getElementById('batt-fill').style.width = bpct + '%';
+  document.getElementById('batt-fill').style.background =
+    bpct <= 20 ? '#ef4444' : bpct <= 40 ? '#f59e0b' :
+    'linear-gradient(90deg,#4ec94e,#1db954)';
+
+  // LIDAR
+  const ld = s.lidar;
+  document.getElementById('lidar-nearest').textContent = ld.nearest + 'm';
+  document.getElementById('lidar-obs').textContent     = ld.obstacle_count;
+  drawLidar(ld.points);
+
+  // AI
+  const ai = s.ai;
+  setBar('ai-learn', ai.learning_progress);
+  setBar('ai-conf',  ai.confidence);
+  setBar('ai-eff',   ai.route_efficiency);
+  renderRoutes(ai.routes);
+
+  // Camera
+  renderCamera(s.camera);
+
+  // Map
+  drawMap(s);
+}
+
+function statusColor(s) {
+  const m = {idle:'#9ab89a',moving:'#1db954',avoiding:'#f59e0b',rerouting:'#0ea5e9',arrived:'#0ea5e9',returning:'#f59e0b'};
+  return m[s] || '#9ab89a';
+}
+function setBar(id, pct) {
+  document.getElementById(id+'-bar').style.width = pct + '%';
+  document.getElementById(id+'-pct').textContent = pct + '%';
+}
+function renderRoutes(routes) {
+  const el = document.getElementById('ai-routes');
+  if (!routes || !routes.length) return;
+  el.innerHTML = routes.map(r =>
+    `<div style="display:flex;justify-content:space-between;font-size:9px;padding:2px 0;border-bottom:1px solid var(--faint)">
+       <span style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px">${r.label}</span>
+       <span style="color:#a855f7;font-weight:600">${r.score}%</span>
+     </div>`
+  ).join('');
+}
+
+// ── Map drawing ───────────────────────────────────────────────────────
+const MAP_W = 760, MAP_H = 400;
+const BUILDINGS = [
+  {x:10, y:10, w:130,h:110,label:'Main Gate',    icon:'🏛'},
+  {x:202,y:10, w:150,h:110,label:'Admin Block',  icon:'🏢'},
+  {x:402,y:10, w:130,h:110,label:'Science',      icon:'🔬'},
+  {x:10, y:162,w:130,h:80, label:'Library',      icon:'📚'},
+  {x:202,y:162,w:150,h:80, label:'Lab A',        icon:'⚗'},
+  {x:402,y:162,w:130,h:80, label:'Lab B',        icon:'⚡'},
+  {x:602,y:162,w:130,h:80, label:'Canteen',      icon:'🍽'},
+  {x:10, y:292,w:130,h:90, label:'Engineering',  icon:'⚙'},
+  {x:202,y:292,w:150,h:90, label:'Hostel A',     icon:'🏠'},
+  {x:402,y:292,w:130,h:90, label:'Sports',       icon:'⚽'},
+  {x:602,y:10, w:130,h:110,label:'Medical',      icon:'🏥'},
+  {x:602,y:292,w:130,h:90, label:'Hostel B',     icon:'🏘'},
+];
+const ROADS = [
+  {x:0,y:140,w:760,h:22},{x:0,y:270,w:760,h:22},
+  {x:160,y:0,w:22,h:400},{x:380,y:0,w:22,h:400},{x:560,y:0,w:22,h:400},
+];
+
+let mapCanvas, mapCtx, mapW, mapH;
+let animFrame = 0;
+
+function initMap() {
+  mapCanvas = document.getElementById('sim-map');
+  const parent = mapCanvas.parentElement;
+  const dpr = window.devicePixelRatio || 1;
+  mapW = parent.clientWidth;
+  mapH = parent.clientHeight;
+  mapCanvas.width  = mapW * dpr;
+  mapCanvas.height = mapH * dpr;
+  mapCanvas.style.width  = mapW + 'px';
+  mapCanvas.style.height = mapH + 'px';
+  mapCtx = mapCanvas.getContext('2d');
+  mapCtx.scale(dpr, dpr);
+
+  window.addEventListener('resize', initMap);
+}
+
+function sx(x){ return x * mapW / MAP_W; }
+function sy(y){ return y * mapH / MAP_H; }
+function sw(v){ return v * mapW / MAP_W; }
+function sh(v){ return v * mapH / MAP_H; }
+
+function drawMap(s) {
+  if (!mapCtx) return;
+  animFrame++;
+  const c = mapCtx;
+  c.clearRect(0, 0, mapW, mapH);
+
+  // Background
+  c.fillStyle = '#070f07';
+  c.fillRect(0, 0, mapW, mapH);
+
+  // Grid
+  c.strokeStyle = 'rgba(29,185,84,0.05)';
+  c.lineWidth = 1;
+  for (let x = 0; x < mapW; x += sw(40)) {
+    c.beginPath(); c.moveTo(x, 0); c.lineTo(x, mapH); c.stroke();
+  }
+  for (let y = 0; y < mapH; y += sh(40)) {
+    c.beginPath(); c.moveTo(0, y); c.lineTo(mapW, y); c.stroke();
+  }
+
+  // Roads
+  ROADS.forEach(r => {
+    c.fillStyle = '#0d1a0d';
+    c.fillRect(sx(r.x), sy(r.y), sw(r.w), sh(r.h));
+    c.strokeStyle = 'rgba(29,185,84,0.1)';
+    c.lineWidth = 1;
+    c.setLineDash([sw(8), sw(5)]);
+    c.beginPath();
+    if (r.w > r.h) {
+      c.moveTo(sx(r.x), sy(r.y + r.h/2));
+      c.lineTo(sx(r.x + r.w), sy(r.y + r.h/2));
+    } else {
+      c.moveTo(sx(r.x + r.w/2), sy(r.y));
+      c.lineTo(sx(r.x + r.w/2), sy(r.y + r.h));
+    }
+    c.stroke(); c.setLineDash([]);
+  });
+
+  // Buildings
+  BUILDINGS.forEach(b => {
+    const bx=sx(b.x),by=sy(b.y),bw=sw(b.w),bh=sh(b.h);
+    c.fillStyle='rgba(13,31,13,0.9)';
+    rrect(c,bx,by,bw,bh,3); c.fill();
+    c.strokeStyle='rgba(29,185,84,0.2)'; c.lineWidth=1;
+    rrect(c,bx,by,bw,bh,3); c.stroke();
+    c.font=`${sw(12)}px serif`; c.textAlign='center';
+    c.fillText(b.icon,bx+bw/2,by+sh(22));
+    c.font=`500 ${Math.max(7,sw(7.5))}px 'JetBrains Mono',monospace`;
+    c.fillStyle='rgba(29,185,84,0.5)';
+    c.fillText(b.label,bx+bw/2,by+sh(34));
+  });
+
+  // Home base
+  c.beginPath(); c.arc(sx(680),sy(170),sw(18),0,Math.PI*2);
+  c.strokeStyle='rgba(29,185,84,0.3)'; c.lineWidth=1.5;
+  c.setLineDash([3,3]); c.stroke(); c.setLineDash([]);
+  c.font=`${sw(10)}px serif`; c.textAlign='center';
+  c.fillText('🤖',sx(680),sy(170)+sh(4));
+
+  // LIDAR overlay
+  if (s.lidar && s.lidar.points) drawLidarOverlay(c, s.robot, s.lidar.points);
+
+  // Route path
+  if (s.path && s.path.length > 1) {
+    c.save();
+    c.strokeStyle='rgba(29,185,84,0.4)'; c.lineWidth=sw(3);
+    c.setLineDash([sw(6),sw(4)]);
+    const off = (animFrame * 0.5) % (sw(6)+sw(4));
+    c.lineDashOffset = -off;
+    c.beginPath();
+    c.moveTo(sx(s.path[0].x), sy(s.path[0].y));
+    s.path.slice(1).forEach(p=>c.lineTo(sx(p.x),sy(p.y)));
+    c.stroke(); c.setLineDash([]); c.restore();
+  }
+
+  // Trail
+  if (s.trail) {
+    s.trail.forEach((t,i)=>{
+      const alpha = (i/s.trail.length)*0.35;
+      c.beginPath(); c.arc(sx(t.x),sy(t.y),sw(2),0,Math.PI*2);
+      c.fillStyle=`rgba(29,185,84,${alpha})`; c.fill();
+    });
+  }
+
+  // Markers
+  if (s.pickup) drawMarker(c, s.pickup.x, s.pickup.y, '#f59e0b', '📦', 'PICKUP');
+  if (s.dest) {
+    const locked = s.lock && s.lock.active;
+    drawMarker(c, s.dest.x, s.dest.y, locked ? '#ef4444' : '#0ea5e9',
+               locked ? '🔒' : '📍', locked ? 'LOCKED' : 'DEST');
+    // Pulse ring when locked
+    if (locked) {
+      const pr = (animFrame % 40) / 40 * sw(24);
+      const pa = 1 - pr / sw(24);
+      c.beginPath(); c.arc(sx(s.dest.x), sy(s.dest.y), pr, 0, Math.PI*2);
+      c.strokeStyle = `rgba(239,68,68,${pa*0.6})`; c.lineWidth=1.5; c.stroke();
+    }
+  }
+
+  // Dynamic obstacles
+  if (s.obstacles) {
+    s.obstacles.forEach(o=>{
+      const col = o.type==='vehicle'?'#f59e0b':'#ef4444';
+      c.beginPath(); c.arc(sx(o.x),sy(o.y),sw(o.radius),0,Math.PI*2);
+      c.fillStyle=col+'22'; c.fill();
+      c.strokeStyle=col+'88'; c.lineWidth=1; c.stroke();
+      c.font=`${sw(8)}px serif`; c.textAlign='center';
+      c.fillText(o.type==='vehicle'?'🚗':'👤',sx(o.x),sy(o.y)+sh(4));
+    });
+  }
+
+  // Robot
+  drawRobot(c, s.robot);
+}
+
+function drawLidarOverlay(c, robot, pts) {
+  const rx = sx(robot.x), ry = sy(robot.y);
+  pts.forEach(p=>{
+    if (!p.hit) return;
+    const px=sx(p.x), py=sy(p.y);
+    const col = p.type==='building'?'rgba(29,185,84,0.18)':
+                p.type==='vehicle'?'rgba(245,158,11,0.5)':
+                'rgba(239,68,68,0.5)';
+    c.beginPath(); c.moveTo(rx,ry); c.lineTo(px,py);
+    c.strokeStyle=col; c.lineWidth=0.5; c.stroke();
+    if (p.type!=='building') {
+      c.beginPath(); c.arc(px,py,sw(3),0,Math.PI*2);
+      c.fillStyle=col; c.fill();
+    }
+  });
+}
+
+function drawRobot(c, r) {
+  const rx = sx(r.x), ry = sy(r.y);
+  c.save(); c.translate(rx,ry); c.rotate(r.angle + Math.PI/2);
+  const col = r.status==='avoiding'?'#f59e0b':
+              r.status==='rerouting'?'#0ea5e9':'#1db954';
+  c.shadowColor=col; c.shadowBlur=sw(10);
+  const bw=sw(12), bh=sh(18);
+  c.fillStyle='rgba(6,13,6,0.9)'; c.strokeStyle=col; c.lineWidth=1.5;
+  rrect(c,-bw/2,-bh/2,bw,bh,sw(3)); c.fill(); c.stroke();
+  c.fillStyle=col;
+  rrect(c,-bw/2,-bh/2,bw,bh*0.38,sw(3)); c.fill();
+  // wheels
+  [[-bw/2-2,-bh*0.2],[bw/2-1,-bh*0.2],[-bw/2-2,bh*0.2],[bw/2-1,bh*0.2]].forEach(([wx,wy])=>{
+    c.fillStyle='#0d2010';
+    rrect(c,wx,wy-sh(2.5),2.5,sh(5),1); c.fill();
+  });
+  // center light
+  c.beginPath(); c.arc(0,sh(3),sw(2.5),0,Math.PI*2);
+  c.fillStyle=col; c.fill();
+  c.shadowBlur=0; c.restore();
+
+  // Pulse ring when idle/arrived
+  if (r.status==='idle'||r.status==='arrived') {
+    const pr = (animFrame % 60) / 60 * sw(20);
+    const pa = 1 - pr / sw(20);
+    c.beginPath(); c.arc(rx,ry,pr,0,Math.PI*2);
+    c.strokeStyle=`rgba(29,185,84,${pa*0.5})`; c.lineWidth=1.5; c.stroke();
+  }
+}
+
+function drawMarker(c,wx,wy,col,icon,label){
+  const x=sx(wx),y=sy(wy);
+  c.beginPath(); c.arc(x,y,sw(10),0,Math.PI*2);
+  c.fillStyle=col+'22'; c.fill();
+  c.strokeStyle=col; c.lineWidth=1.5; c.stroke();
+  c.font=`${sw(9)}px serif`; c.textAlign='center';
+  c.fillText(icon,x,y+sh(3));
+  c.font=`600 ${Math.max(6,sw(6.5))}px 'JetBrains Mono',monospace`;
+  c.fillStyle=col; c.fillText(label,x,y+sh(18));
+}
+
+function rrect(c,x,y,w,h,r){
+  c.beginPath();
+  c.moveTo(x+r,y); c.lineTo(x+w-r,y);
+  c.quadraticCurveTo(x+w,y,x+w,y+r);
+  c.lineTo(x+w,y+h-r);
+  c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  c.lineTo(x+r,y+h);
+  c.quadraticCurveTo(x,y+h,x,y+h-r);
+  c.lineTo(x,y+r);
+  c.quadraticCurveTo(x,y,x+r,y);
+  c.closePath();
+}
+
+// ── LIDAR mini ────────────────────────────────────────────────────────
+let lidarAngle = 0;
+const lidarCanvas = () => document.getElementById('lidar-mini');
+
+function drawLidar(pts) {
+  const cv = lidarCanvas();
+  if (!cv) return;
+  const ct = cv.getContext('2d');
+  const W = cv.width, H = cv.height, cx = W/2, cy = H/2, R = W/2 - 4;
+  ct.clearRect(0,0,W,H);
+
+  // Background
+  const bg = ct.createRadialGradient(cx,cy,0,cx,cy,R);
+  bg.addColorStop(0,'#0a180a'); bg.addColorStop(1,'#060d06');
+  ct.fillStyle=bg; ct.beginPath(); ct.arc(cx,cy,R,0,Math.PI*2); ct.fill();
+
+  // Rings
+  [0.33,0.66,1].forEach(f=>{
+    ct.beginPath(); ct.arc(cx,cy,R*f,0,Math.PI*2);
+    ct.strokeStyle=`rgba(29,185,84,${f===1?0.2:0.07})`; ct.lineWidth=f===1?1.2:0.5; ct.stroke();
+  });
+
+  // Cross
+  ct.strokeStyle='rgba(29,185,84,0.07)'; ct.lineWidth=0.5;
+  ct.beginPath(); ct.moveTo(cx-R,cy); ct.lineTo(cx+R,cy); ct.stroke();
+  ct.beginPath(); ct.moveTo(cx,cy-R); ct.lineTo(cx,cy+R); ct.stroke();
+
+  // Sweep
+  lidarAngle = (lidarAngle + 0.05) % (Math.PI*2);
+  const sweepLen = Math.PI/3;
+  ct.save(); ct.translate(cx,cy); ct.rotate(lidarAngle);
+  const sg = ct.createRadialGradient(0,0,0,0,0,R);
+  sg.addColorStop(0,'rgba(29,185,84,0.2)'); sg.addColorStop(1,'rgba(29,185,84,0)');
+  ct.beginPath(); ct.moveTo(0,0); ct.arc(0,0,R,-sweepLen/2,sweepLen/2); ct.closePath();
+  ct.fillStyle=sg; ct.fill();
+  ct.beginPath(); ct.moveTo(0,0); ct.lineTo(R,0);
+  ct.strokeStyle='rgba(29,185,84,0.9)'; ct.lineWidth=1.2;
+  ct.shadowColor='#1db954'; ct.shadowBlur=4; ct.stroke(); ct.shadowBlur=0;
+  ct.restore();
+
+  // Obstacle dots
+  if (pts) {
+    pts.forEach(p=>{
+      if (!p.hit) return;
+      const px = cx + Math.cos(p.angle)*R*(p.distance/90)*0.95;
+      const py = cy + Math.sin(p.angle)*R*(p.distance/90)*0.95;
+      const col = p.type==='building'?'rgba(29,185,84,0.4)':
+                  p.type==='vehicle'?'rgba(245,158,11,0.8)':
+                  'rgba(239,68,68,0.8)';
+      ct.beginPath(); ct.arc(px,py,1.8,0,Math.PI*2);
+      ct.fillStyle=col; ct.fill();
+    });
+  }
+
+  // Center dot
+  ct.beginPath(); ct.arc(cx,cy,2.5,0,Math.PI*2);
+  ct.fillStyle='#1db954'; ct.shadowColor='#1db954'; ct.shadowBlur=5;
+  ct.fill(); ct.shadowBlur=0;
+}
+
+// ── Camera feed ───────────────────────────────────────────────────────
+function renderCamera(cam) {
+  if (!cam) return;
+  const cv = document.getElementById('cam-canvas');
+  if (!cv) return;
+  const ct = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  ct.clearRect(0,0,W,H);
+
+  // Dark green tint background
+  ct.fillStyle='#030803'; ct.fillRect(0,0,W,H);
+
+  // Scanlines
+  for (let y=0; y<H; y+=3) {
+    ct.fillStyle='rgba(0,0,0,0.15)'; ct.fillRect(0,y,W,1);
+  }
+
+  // Grid overlay
+  ct.strokeStyle='rgba(29,185,84,0.06)'; ct.lineWidth=0.5;
+  for (let x=0; x<W; x+=20){ct.beginPath();ct.moveTo(x,0);ct.lineTo(x,H);ct.stroke();}
+  for (let y=0; y<H; y+=20){ct.beginPath();ct.moveTo(0,y);ct.lineTo(W,y);ct.stroke();}
+
+  // Crosshair
+  ct.strokeStyle='rgba(29,185,84,0.3)'; ct.lineWidth=0.8;
+  ct.beginPath(); ct.moveTo(W/2-12,H/2); ct.lineTo(W/2+12,H/2); ct.stroke();
+  ct.beginPath(); ct.moveTo(W/2,H/2-12); ct.lineTo(W/2,H/2+12); ct.stroke();
+  ct.beginPath(); ct.arc(W/2,H/2,18,0,Math.PI*2);
+  ct.strokeStyle='rgba(29,185,84,0.15)'; ct.stroke();
+
+  // Detected objects
+  if (cam.objects && cam.objects.length) {
+    cam.objects.forEach((obj,i) => {
+      const bx = W/2 + (obj.bearing / 30) * (W/3);
+      const by = H/2 - 10 + i * 20;
+      const bw = 44, bh = 16;
+      ct.strokeStyle='rgba(29,185,84,0.7)'; ct.lineWidth=1;
+      ct.strokeRect(bx - bw/2, by - bh/2, bw, bh);
+      ct.font='500 8px JetBrains Mono,monospace';
+      ct.fillStyle='rgba(29,185,84,0.9)';
+      ct.textAlign='center';
+      ct.fillText(obj.label, bx, by + 3);
+    });
+  }
+
+  // Corner brackets
+  const bs = 10, bl = 14;
+  ct.strokeStyle='rgba(29,185,84,0.35)'; ct.lineWidth=1.5;
+  [[0,0],[W-bs,0],[0,H-bs],[W-bs,H-bs]].forEach(([cx,cy])=>{
+    const sx = cx===0?1:-1, sy = cy===0?1:-1;
+    ct.beginPath(); ct.moveTo(cx+bs,cy); ct.lineTo(cx,cy); ct.lineTo(cx,cy+bs); ct.stroke();
+  });
+
+  // Detected objects list
+  const det = document.getElementById('cam-detect');
+  det.innerHTML = cam.objects && cam.objects.length
+    ? cam.objects.map(o=>
+        `<div class="cam-obj">
+          <span>${o.label}</span>
+          <span style="color:var(--blue)">${o.distance}m</span>
+          <span style="color:var(--accent)">${Math.round(o.confidence*100)}%</span>
+        </div>`
+      ).join('')
+    : `<div style="font-size:10px;color:var(--muted)">No objects detected</div>`;
+}
+
+// ── Activity log ──────────────────────────────────────────────────────
+const MAX_LOG = 80;
+let logLines = [];
+let prevStatus = '';
+
+function log(msg, type='info') {
+  const ts = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  logLines.unshift({ ts, msg, type });
+  if (logLines.length > MAX_LOG) logLines.pop();
+  renderLog();
+}
+
+function renderLog() {
+  const panel = document.getElementById('log-panel');
+  const existing = panel.children;
+  // Keep header
+  while (panel.children.length > 1) panel.removeChild(panel.lastChild);
+  logLines.slice(0, 30).forEach(l => {
+    const div = document.createElement('div');
+    div.className = `log-line ${l.type}`;
+    div.innerHTML = `<span class="ts">${l.ts}</span><span class="msg">${l.msg}</span>`;
+    panel.appendChild(div);
+  });
+}
+
+function clearLog() { logLines = []; renderLog(); }
+
+// Auto-log status changes
+function watchStatus(s) {
+  const cur = s.robot.status;
+  if (cur !== prevStatus) {
+    const msgs = {
+      idle:      ['Robot idle at home base', 'info'],
+      moving:    [`En route — ${s.robot.task}`, 'info'],
+      avoiding:  ['Obstacle detected — pausing', 'warn'],
+      rerouting: ['AI replanning path...', 'blue'],
+      arrived:   [`Arrived: ${s.robot.destination}`, 'info'],
+      returning: ['Returning to home base', 'warn'],
+    };
+    const [m, t] = msgs[cur] || [cur, 'info'];
+    log(m, t);
+    prevStatus = cur;
+  }
+}
+
+// ── Delivery lock / unlock ─────────────────────────────────────────────
+let _lockActive = false;
+
+function showLockBanner(msg) {
+  _lockActive = true;
+  const banner = document.getElementById('lock-banner');
+  if (!banner) return;
+  banner.style.display = 'block';
+
+  const destEl = document.getElementById('lock-banner-dest');
+  if (destEl) destEl.textContent = `${msg.item || 'Package'} at ${msg.dest || 'destination'}`;
+
+  const hintEl = document.getElementById('lock-banner-hint');
+  if (hintEl) hintEl.textContent = msg.otp_hint || '';
+
+  if (msg.dev_otp && hintEl) {
+    hintEl.innerHTML = `DEV — Unlock Code: <strong style="color:#ef4444">${msg.dev_otp}</strong>`;
+  }
+
+  // Wire digit inputs
+  const digits = document.querySelectorAll('.sv-lock-digit');
+  digits.forEach((el, i) => {
+    el.value = '';
+    const fresh = el.cloneNode(true);
+    el.parentNode.replaceChild(fresh, el);
+  });
+  const fresh = document.querySelectorAll('.sv-lock-digit');
+  fresh.forEach((el, i) => {
+    el.addEventListener('input', e => {
+      const val = e.target.value.replace(/\D/g,'');
+      e.target.value = val;
+      if (val && i < fresh.length-1) fresh[i+1].focus();
+    });
+    el.addEventListener('keydown', e => {
+      if (e.key==='Backspace' && !el.value && i>0) fresh[i-1].focus();
+      if (e.key==='Enter') svUnlock();
+    });
+    el.addEventListener('paste', e => {
+      const data = (e.clipboardData||window.clipboardData).getData('text').replace(/\D/g,'');
+      if (data.length >= 6) {
+        fresh.forEach((d,j)=>{ d.value=data[j]||''; });
+        e.preventDefault();
+        setTimeout(svUnlock, 200);
+      }
+    });
+  });
+
+  setTimeout(() => fresh[0]?.focus(), 100);
+  log('DELIVERY LOCKED — enter unlock code', 'err');
+}
+
+function hideLockBanner(message) {
+  _lockActive = false;
+  const banner = document.getElementById('lock-banner');
+  const icon = document.getElementById('lock-banner-icon');
+  if (icon) {
+    icon.textContent = '🔓';
+    icon.style.filter = 'drop-shadow(0 0 10px #1db954)';
+  }
+  setTimeout(() => {
+    if (banner) banner.style.display = 'none';
+    if (icon) { icon.textContent = '🔒'; icon.style.filter = ''; }
+  }, 1400);
+  log(message || 'Package unlocked — robot returning', 'info');
+}
+
+function showLockBannerErr(message) {
+  const el = document.getElementById('lock-banner-err');
+  if (el) el.textContent = message || 'Incorrect code';
+  const digits = document.querySelectorAll('.sv-lock-digit');
+  digits.forEach(d => { d.value=''; d.style.borderColor='rgba(239,68,68,0.8)'; });
+  setTimeout(()=>digits.forEach(d=>d.style.borderColor=''),600);
+  digits[0]?.focus();
+}
+
+function svUnlock() {
+  const digits  = document.querySelectorAll('.sv-lock-digit');
+  const entered = Array.from(digits).map(d=>d.value).join('');
+  const errEl   = document.getElementById('lock-banner-err');
+  if (errEl) errEl.textContent = '';
+  if (entered.length < 6) { if(errEl) errEl.textContent='Enter all 6 digits'; return; }
+  sendCmd({ cmd: 'unlock', otp: entered });
+}
+
+// ── Commands ──────────────────────────────────────────────────────────
+function cmdStart() {
+  const d = document.getElementById('dp-dest').value;
+  const i = document.getElementById('dp-item').value || 'Package';
+  const p = document.getElementById('dp-pickup').value;
+  const re = document.getElementById('dp-receiver-email')?.value.trim() || '';
+  sendCmd({ cmd:'start', destination:d, item:i, pickup:p, receiver_email: re });
+  log(`Dispatching: ${i} -> ${d}`, 'info');
+}
+function cmdRecall()  { sendCmd({cmd:'recall'}); log('Robot recalled','warn'); }
+function cmdStop()    { sendCmd({cmd:'estop'});  log('Emergency stop!','err'); }
+function dispatchFromForm() { cmdStart(); }
+
+// ── Idle animation (no WS) ────────────────────────────────────────────
+function idleLoop() {
+  if (!lastState) {
+    // Draw empty map while disconnected
+    if (mapCtx) {
+      mapCtx.clearRect(0,0,mapW,mapH);
+      mapCtx.fillStyle='#070f07'; mapCtx.fillRect(0,0,mapW,mapH);
+      ROADS.forEach(r=>{mapCtx.fillStyle='#0d1a0d';mapCtx.fillRect(sx(r.x),sy(r.y),sw(r.w),sh(r.h));});
+      BUILDINGS.forEach(b=>{
+        mapCtx.fillStyle='rgba(13,31,13,0.9)'; rrect(mapCtx,sx(b.x),sy(b.y),sw(b.w),sh(b.h),3); mapCtx.fill();
+        mapCtx.strokeStyle='rgba(29,185,84,0.15)'; mapCtx.lineWidth=1;rrect(mapCtx,sx(b.x),sy(b.y),sw(b.w),sh(b.h),3);mapCtx.stroke();
+      });
+      mapCtx.font=`${sw(10)}px serif`; mapCtx.textAlign='center';
+      mapCtx.fillText('🤖',sx(680),sy(170)+sh(4));
+    }
+    drawLidar(null);
+  }
+  requestAnimationFrame(idleLoop);
+}
+
+// ── Override handleState to also watch status ─────────────────────────
+const _orig = handleState;
+function handleStateWrapped(s) { _orig(s); watchStatus(s); }
+
+// Re-bind ws onmessage after redefinition
+const origConnect = connect;
+
+// ── Boot ──────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  initMap();
+  idleLoop();
+
+  ws = null;
+  try {
+    const _ws = new WebSocket(WS_URL);
+    _ws.onopen = () => {
+      ws = _ws;
+      setConnected(true);
+      log('WebSocket connected to Python simulation', 'info');
+    };
+    _ws.onmessage = e => {
+      try {
+        const msg = JSON.parse(e.data);
+        if      (msg.type === 'state')             handleStateWrapped(msg);
+        else if (msg.type === 'delivery_lock')     showLockBanner(msg);
+        else if (msg.type === 'delivery_unlocked') hideLockBanner(msg.message);
+        else if (msg.type === 'unlock_error')      showLockBannerErr(msg.message);
+      } catch {}
+    };
+    _ws.onclose = () => {
+      setConnected(false);
+      log('Connection lost — retrying...', 'warn');
+      setTimeout(()=>connect(), 3000);
+    };
+    _ws.onerror = () => _ws.close();
+  } catch { log('Could not connect to Python backend', 'err'); }
+});
+
+// Re-define connect to reuse same message handler
+function connect() {
+  try {
+    ws = new WebSocket(WS_URL);
+    ws.onopen = () => { setConnected(true); log('Reconnected','info'); };
+    ws.onmessage = e => {
+      try {
+        const msg = JSON.parse(e.data);
+        if      (msg.type === 'state')             handleStateWrapped(msg);
+        else if (msg.type === 'delivery_lock')     showLockBanner(msg);
+        else if (msg.type === 'delivery_unlocked') hideLockBanner(msg.message);
+        else if (msg.type === 'unlock_error')      showLockBannerErr(msg.message);
+      } catch {}
+    };
+    ws.onclose = () => { setConnected(false); setTimeout(connect, 3000); };
+    ws.onerror = () => ws.close();
+  } catch { setTimeout(connect, 3000); }
+}
+</script>
+</body>
+</html>

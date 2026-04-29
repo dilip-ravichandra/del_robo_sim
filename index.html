@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DeliveryBot — Sign In</title>
+  <link rel="stylesheet" href="variables.css">
+  <!-- <link rel="stylesheet" href="css/animations.css"> -->
+  <!-- <link rel="stylesheet" href="css/login.css"> -->
+</head>
+<body class="login-page">
+
+  <!-- Particle canvas -->
+  <canvas id="particle-canvas"></canvas>
+
+  <!-- Decorative rings -->
+  <div class="bg-rings">
+    <div class="bg-ring"></div>
+    <div class="bg-ring"></div>
+    <div class="bg-ring"></div>
+    <div class="bg-ring"></div>
+  </div>
+
+  <!-- Corner decorations -->
+  <div class="corner-deco tl"></div>
+  <div class="corner-deco tr"></div>
+  <div class="corner-deco bl"></div>
+  <div class="corner-deco br"></div>
+
+  <!-- Login Card -->
+  <div class="login-wrapper">
+    <div class="login-card">
+
+      <!-- Logo -->
+      <div class="login-logo">
+        <div class="login-logo-icon">🤖</div>
+        <h1>DeliveryBot</h1>
+        <p>AUTONOMOUS CAMPUS DELIVERY</p>
+      </div>
+
+      <!-- Tabs -->
+      <div class="login-tabs">
+        <button class="login-tab active" id="tab-login" onclick="switchTab('login')">Sign In</button>
+        <button class="login-tab" id="tab-signup" onclick="switchTab('signup')">Sign Up</button>
+      </div>
+
+      <!-- Error message -->
+      <div class="form-error" id="form-error">
+        <span>⚠</span>
+        <span id="error-text">Invalid email or password.</span>
+      </div>
+
+      <!-- Login form -->
+      <div id="panel-login">
+        <div class="form-group delay-200">
+          <label class="form-label">Email Address</label>
+          <div class="form-input-wrap">
+            <span class="form-input-icon">✉</span>
+            <input type="email" class="form-input" id="login-email"
+              placeholder="you@university.edu" autocomplete="email">
+            <div class="input-focus-bar"></div>
+          </div>
+        </div>
+
+        <div class="form-group delay-250">
+          <label class="form-label">Password</label>
+          <div class="form-input-wrap">
+            <span class="form-input-icon">🔒</span>
+            <input type="password" class="form-input" id="login-pass"
+              placeholder="••••••••" autocomplete="current-password">
+            <button class="pwd-toggle" id="pwd-toggle" onclick="togglePwd()" type="button">👁</button>
+            <div class="input-focus-bar"></div>
+          </div>
+        </div>
+
+        <div class="form-extras delay-300">
+          <label class="remember-wrap" onclick="toggleRemember()">
+            <div class="remember-check" id="remember-check"></div>
+            <span class="remember-label">Keep me signed in</span>
+          </label>
+          <a href="#" class="forgot-link">Forgot password?</a>
+        </div>
+
+        <button class="btn-login" id="btn-login" onclick="handleLogin()">
+          <span class="btn-text">Access System</span>
+          <div class="btn-spinner"><div class="spinner-ring"></div></div>
+        </button>
+      </div>
+
+      <!-- Signup form -->
+      <div id="panel-signup" style="display:none">
+        <div class="form-group delay-100">
+          <label class="form-label">Full Name</label>
+          <div class="form-input-wrap">
+            <span class="form-input-icon">👤</span>
+            <input type="text" class="form-input" id="signup-name" placeholder="Arjun Mehta">
+            <div class="input-focus-bar"></div>
+          </div>
+        </div>
+
+        <div class="form-group delay-150">
+          <label class="form-label">Email</label>
+          <div class="form-input-wrap">
+            <span class="form-input-icon">✉</span>
+            <input type="email" class="form-input" id="signup-email" placeholder="arjun@campus.edu">
+            <div class="input-focus-bar"></div>
+          </div>
+        </div>
+
+        <div class="form-group delay-200">
+          <label class="form-label">Role</label>
+          <div class="form-input-wrap">
+            <span class="form-input-icon">🏷</span>
+            <select class="form-input" id="signup-role" style="padding-left:44px;padding-right:12px;appearance:none;cursor:pointer">
+              <option value="student">Student</option>
+              <option value="faculty">Faculty</option>
+              <option value="staff">Staff</option>
+              <option value="admin">Admin</option>
+            </select>
+            <div class="input-focus-bar"></div>
+          </div>
+        </div>
+
+        <div class="form-group delay-250">
+          <label class="form-label">Password</label>
+          <div class="form-input-wrap">
+            <span class="form-input-icon">🔒</span>
+            <input type="password" class="form-input" id="signup-pass" placeholder="••••••••">
+            <div class="input-focus-bar"></div>
+          </div>
+        </div>
+
+        <button class="btn-login" id="btn-signup" onclick="handleSignup()">
+          <span class="btn-text">Create Account</span>
+          <div class="btn-spinner"><div class="spinner-ring"></div></div>
+        </button>
+      </div>
+
+      <!-- Demo credentials -->
+      <div class="login-divider">
+        <span>Quick access demos</span>
+      </div>
+
+      <div class="demo-chips">
+        <div class="demo-chip" onclick="fillDemo('admin@campus.edu','admin123')">
+          <span class="demo-chip-icon">⚙️</span>
+          <span class="demo-chip-text">Admin</span>
+        </div>
+        <div class="demo-chip" onclick="fillDemo('student@campus.edu','pass123')">
+          <span class="demo-chip-icon">🎒</span>
+          <span class="demo-chip-text">Student</span>
+        </div>
+        <div class="demo-chip" onclick="fillDemo('faculty@campus.edu','pass123')">
+          <span class="demo-chip-icon">🎓</span>
+          <span class="demo-chip-text">Faculty</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="login-footer">
+      v2.0 · SMART DELIVERY SYSTEM · CAMPUS EDITION
+    </div>
+  </div>
+
+  <!-- EmailJS CDN for real OTP emails -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script src="login.js"></script>
+</body>
+</html>
