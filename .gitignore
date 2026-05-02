@@ -32,3 +32,6 @@ desktop.ini
 
 # Claude Code session data
 .claude/
+
+# Docker local overrides
+.env.docker
