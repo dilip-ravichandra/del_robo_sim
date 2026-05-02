@@ -34,8 +34,8 @@ echo   https://replace-detest-recycling.ngrok-free.dev
 echo  ==========================================
 echo.
 
-:: Open laptop dashboard in browser
-timeout /t 2 /nobreak >nul
-start "" "http://localhost:5500/dashboard.html"
+:: Launch pygame simulation viewer
+echo  [3/3] Starting pygame simulation viewer...
+start "DeliveryBot Viewer" cmd /k "cd /d %~dp0 && python sim_pygame.py"
 
 pause
