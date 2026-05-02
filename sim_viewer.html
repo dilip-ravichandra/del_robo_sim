@@ -700,26 +700,28 @@ function drawPath(path) {
 }
 
 // ── LIDAR ─────────────────────────────────────────────────
+// pt.x, pt.y are the actual map-coords of the hit point (computed by Python)
+// pt.angle is in radians, y-down convention (matches canvas)
 function drawLidar(rx, ry, points) {
   if(!points||!points.length) return;
   ctx.save();
+  const orx = X(rx), ory = Y(ry);
   points.forEach(pt=>{
-    const ang  = pt.angle * Math.PI / 180;
-    const dist = pt.distance;
-    const hit  = pt.hit;
-    const ex   = X(rx) + Math.cos(ang)*dist*scaleX;
-    const ey   = Y(ry) - Math.sin(ang)*dist*scaleY;
-    ctx.strokeStyle = hit ? 'rgba(239,68,68,0.55)' : 'rgba(29,185,84,0.1)';
-    ctx.lineWidth   = hit ? S(0.8) : S(0.5);
-    ctx.beginPath(); ctx.moveTo(X(rx),Y(ry)); ctx.lineTo(ex,ey); ctx.stroke();
+    const ex = X(pt.x), ey = Y(pt.y);
+    const hit = pt.hit;
+    const typ = pt.type || 'none';
+    const hitCol = typ==='vehicle'?'rgba(251,146,60,0.9)':typ==='person'?'rgba(168,85,247,0.9)':'rgba(239,68,68,0.85)';
+    ctx.strokeStyle = hit ? (typ==='building'?'rgba(239,68,68,0.4)':'rgba(239,68,68,0.6)') : 'rgba(29,185,84,0.08)';
+    ctx.lineWidth   = hit ? S(0.7) : S(0.4);
+    ctx.beginPath(); ctx.moveTo(orx, ory); ctx.lineTo(ex, ey); ctx.stroke();
     if(hit){
-      ctx.fillStyle='rgba(239,68,68,0.9)';
-      ctx.beginPath(); ctx.arc(ex,ey,S(2.5),0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = hitCol;
+      ctx.beginPath(); ctx.arc(ex, ey, S(2.5), 0, Math.PI*2); ctx.fill();
     }
   });
-  // LIDAR range ring
-  ctx.strokeStyle='rgba(29,185,84,0.07)'; ctx.lineWidth=S(0.5); ctx.setLineDash([S(2),S(4)]);
-  ctx.beginPath(); ctx.arc(X(rx),Y(ry),S(90)*scaleX/MAP_W*MAP_W,0,Math.PI*2); ctx.stroke();
+  // Range ring
+  ctx.strokeStyle='rgba(29,185,84,0.06)'; ctx.lineWidth=S(0.5); ctx.setLineDash([S(2),S(5)]);
+  ctx.beginPath(); ctx.arc(orx, ory, X(90), 0, Math.PI*2); ctx.stroke();
   ctx.setLineDash([]);
   ctx.restore();
 }
@@ -793,10 +795,19 @@ function drawBike(b) {
   ctx.restore();
 }
 
+const _obsAngles = {};
 function drawVehicle(obs) {
   const px=X(obs.x), py=Y(obs.y);
   const r =S(obs.radius||10);
-  const ang=Math.atan2(obs.vy||0, obs.vx||1);
+  // Estimate direction from position change across frames
+  const key = obs.x.toFixed(0)+','+obs.y.toFixed(0);
+  const prev= _obsAngles['_prev_'+obs.type+'_'+(obs.x*10).toFixed(0)];
+  let ang = _obsAngles[key] || 0;
+  if(prev && (Math.abs(obs.x-prev.x)>0.1 || Math.abs(obs.y-prev.y)>0.1)){
+    ang = Math.atan2(obs.y-prev.y, obs.x-prev.x);
+    _obsAngles[key] = ang;
+  }
+  _obsAngles['_prev_'+obs.type+'_'+(obs.x*10).toFixed(0)] = {x:obs.x,y:obs.y};
   ctx.save(); ctx.translate(px,py); ctx.rotate(ang);
   // Body
   const grad=ctx.createLinearGradient(-r,-r/2,r,r/2);
@@ -841,39 +852,37 @@ function drawPedestrian(obs, t) {
 }
 
 // ── Robot ─────────────────────────────────────────────────
+// r.angle is in RADIANS, y-down convention (same as canvas)
 function drawRobot(r) {
   const px=X(r.x), py=Y(r.y);
-  const ang=r.angle*Math.PI/180;
-  const st =r.status||'idle';
+  const ang = r.angle; // radians, y-down — use directly
+  const st  = r.status||'idle';
   const moving = st!=='idle';
   const colMap={idle:'#4a784a',moving:'#1db954',avoiding:'#ef4444',rerouting:'#a855f7',arrived:'#fbbf24',returning:'#3b82f6'};
-  const col=colMap[st]||'#1db954';
+  const col = colMap[st]||'#1db954';
 
-  // Outer pulse glow
+  // Outer glow
   if(moving){
     const t=(Math.sin(animT*0.12)+1)/2;
     const glow=ctx.createRadialGradient(px,py,S(8),px,py,S(28+t*8));
-    glow.addColorStop(0,col.replace('#','rgba(').replace(/([0-9a-f]{2})/gi,(_,h)=>parseInt(h,16)+',')+'0.2)');
-    glow.addColorStop(0,col+'33'); glow.addColorStop(1,col+'00');
+    glow.addColorStop(0,col+'44'); glow.addColorStop(1,col+'00');
     ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(px,py,S(28+t*8),0,Math.PI*2); ctx.fill();
   }
 
-  // LIDAR sweep animation
+  // Rotating LIDAR sweep fan
   if(moving){
-    const sweepAng = (animT*0.08)%(Math.PI*2);
-    const sweep=ctx.createConicalGradient?null:null; // fallback to arc
+    const sweepAng=(animT*0.08)%(Math.PI*2);
     ctx.save();
-    ctx.strokeStyle=col+'55'; ctx.lineWidth=S(1);
     ctx.beginPath(); ctx.moveTo(px,py);
-    ctx.arc(px,py,S(22),sweepAng-0.4,sweepAng,false);
+    ctx.arc(px,py,S(24),sweepAng,sweepAng+0.5,false);
     ctx.closePath();
-    ctx.fillStyle=col+'18'; ctx.fill();
+    ctx.fillStyle=col+'22'; ctx.fill();
     ctx.restore();
   }
 
   // Body rings
-  ctx.fillStyle=col+'30';
-  ctx.beginPath(); ctx.arc(px,py,S(16),0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=col+'25';
+  ctx.beginPath(); ctx.arc(px,py,S(15),0,Math.PI*2); ctx.fill();
   ctx.fillStyle=col;
   ctx.beginPath(); ctx.arc(px,py,S(10),0,Math.PI*2); ctx.fill();
   ctx.fillStyle='#030a04';
@@ -881,26 +890,29 @@ function drawRobot(r) {
   ctx.fillStyle=col;
   ctx.beginPath(); ctx.arc(px,py,S(2.5),0,Math.PI*2); ctx.fill();
 
-  // Direction arrow
-  const ax=px+Math.cos(ang)*S(13), ay=py-Math.sin(ang)*S(13);
+  // Direction arrow — cos for x, +sin for y (y-down matches canvas)
+  const ax = px + Math.cos(ang)*S(13);
+  const ay = py + Math.sin(ang)*S(13);
   ctx.strokeStyle=col; ctx.lineWidth=S(2.5); ctx.lineCap='round';
   ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(ax,ay); ctx.stroke();
   // Arrowhead
-  const perpAng=ang+Math.PI/2;
+  const perp = ang + Math.PI/2;
   ctx.fillStyle=col; ctx.beginPath();
-  ctx.moveTo(ax,ay);
-  ctx.lineTo(ax-Math.cos(ang)*S(4)+Math.cos(perpAng)*S(2.5), ay+Math.sin(ang)*S(4)-Math.sin(perpAng)*S(2.5));
-  ctx.lineTo(ax-Math.cos(ang)*S(4)-Math.cos(perpAng)*S(2.5), ay+Math.sin(ang)*S(4)+Math.sin(perpAng)*S(2.5));
+  ctx.moveTo(ax, ay);
+  ctx.lineTo(ax - Math.cos(ang)*S(4) + Math.cos(perp)*S(2.5),
+             ay - Math.sin(ang)*S(4) + Math.sin(perp)*S(2.5));
+  ctx.lineTo(ax - Math.cos(ang)*S(4) - Math.cos(perp)*S(2.5),
+             ay - Math.sin(ang)*S(4) - Math.sin(perp)*S(2.5));
   ctx.closePath(); ctx.fill();
 
   // Speed arc
   const spd=Math.min((r.speed||0)/3.5,1);
   if(spd>0.05){
-    ctx.strokeStyle=col+'aa'; ctx.lineWidth=S(2.5);
+    ctx.strokeStyle=col+'99'; ctx.lineWidth=S(2.5);
     ctx.beginPath(); ctx.arc(px,py,S(14),Math.PI/2,Math.PI/2+spd*Math.PI*2); ctx.stroke();
   }
 
-  // Status label
+  // Status label above robot
   ctx.fillStyle=col; ctx.font=`bold ${S(7)}px JetBrains Mono`; ctx.textAlign='center';
   ctx.fillText(st.toUpperCase(),px,py-S(20));
 }
