@@ -320,7 +320,10 @@ let state = null, connected = false;
 let lockMode = null; // 'pickup' | 'delivery'
 
 // ── WebSocket ────────────────────────────────────────────
-const WS = 'ws://localhost:8000/ws';
+const _LOC = ['localhost','127.0.0.1',''].includes(location.hostname);
+const _HOST = _LOC ? 'localhost:8000' : 'replace-detest-recycling.ngrok-free.dev';
+const WS   = `ws${_LOC?'':'s'}://${_HOST}/ws`;
+const API_BASE = `http${_LOC?'':'s'}://${_HOST}`;
 let ws, reconnT;
 
 function connect() {
@@ -406,9 +409,13 @@ async function doUnlock() {
   const ep  = isPickup ? '/delivery/pickup-unlock' : '/delivery/unlock';
   const tok = (() => { try { return JSON.parse(sessionStorage.getItem('dbUser')||localStorage.getItem('dbUser')||'{}').token||''; } catch { return ''; }})();
   try {
-    const r = await fetch('http://localhost:8000'+ep, {
+    const r = await fetch(API_BASE+ep, {
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':tok?'Bearer '+tok:''},
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':tok?'Bearer '+tok:'',
+        'ngrok-skip-browser-warning':'true',
+      },
       body: JSON.stringify({otp})
     });
     const j = await r.json();
@@ -954,7 +961,7 @@ window.addEventListener('load', ()=>{
   connect();
   requestAnimationFrame(frame);
   log('DeliveryBot simulation viewer started','info');
-  log('Waiting for Python backend on ws://localhost:8000/ws','warn');
+  log(`Connecting to ${WS}`,'warn');
 
   // Rebuild map cache on resize
   window.addEventListener('resize',()=>{ mapCache=null; });

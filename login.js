@@ -5,7 +5,10 @@
 
 'use strict';
 
-const API = 'http://localhost:8000';
+const _IS_LOCAL = ['localhost', '127.0.0.1', ''].includes(location.hostname);
+const API = _IS_LOCAL
+  ? 'http://localhost:8000'
+  : 'https://replace-detest-recycling.ngrok-free.dev';
 
 // ── State ─────────────────────────────────────
 let pendingAuth = {
@@ -373,8 +376,11 @@ async function apiFetch(path, method, body) {
   try {
     res = await fetch(API + path, {
       method,
-      headers: { 'Content-Type': 'application/json' },
-      body:    body ? JSON.stringify(body) : undefined,
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+      },
+      body: body ? JSON.stringify(body) : undefined,
     });
   } catch {
     throw new Error('Cannot reach server — is the Python backend running?');
