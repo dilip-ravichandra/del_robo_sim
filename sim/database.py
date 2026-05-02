@@ -2,6 +2,7 @@
 # DELIVERYBOT — MongoDB (Motor async driver)
 # ═══════════════════════════════════════════════
 
+import certifi
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from config import MONGO_URI, DB_NAME
 
@@ -10,7 +11,7 @@ _client: AsyncIOMotorClient | None = None
 
 async def connect_db() -> AsyncIOMotorDatabase:
     global _client
-    _client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    _client = AsyncIOMotorClient(MONGO_URI, serverSelectionTimeoutMS=5000, tlsCAFile=certifi.where())
     db = _client[DB_NAME]
 
     # Ensure indexes (idempotent)

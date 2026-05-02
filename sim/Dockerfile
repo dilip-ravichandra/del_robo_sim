@@ -2,6 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# System CA certificates — required for MongoDB Atlas TLS
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+
 # Install deps first — separate layer for cache efficiency
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
