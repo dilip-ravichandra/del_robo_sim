@@ -20,7 +20,7 @@ const SimBridge = (() => {
   const IS_LOCAL = ['localhost', '127.0.0.1', ''].includes(location.hostname);
   const BACKEND_HOST = IS_LOCAL
     ? 'localhost:8000'
-    : (window.DELIVERYBOT_BACKEND || 'deliverybot-sim.onrender.com');
+    : (window.DELIVERYBOT_BACKEND || 'del-robo-sim-2.onrender.com');
   const WS_URL  = `ws${IS_LOCAL ? '' : 's'}://${BACKEND_HOST}/ws`;
   const API_URL = `http${IS_LOCAL ? '' : 's'}://${BACKEND_HOST}`;
   let   ws      = null;
