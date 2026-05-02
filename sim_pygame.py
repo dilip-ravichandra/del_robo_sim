@@ -1,312 +1,429 @@
 """
-DeliveryBot — Pygame Live Simulation Viewer
-Connects to local backend via WebSocket and renders the campus map + robot.
-Run alongside uvicorn: python sim_pygame.py
+DeliveryBot — Full Pygame Simulation Viewer
+Shows: robot, A* path, LIDAR rays, dynamic obstacles (vehicles + pedestrians),
+       OTP lock banners, AI stats, battery, ETA, recall, all live via WebSocket.
 """
 
-import sys
-import json
-import math
-import threading
-import asyncio
-import websockets
-import pygame
+import sys, json, math, threading, asyncio
+import websockets, pygame
 
-# ── Config ────────────────────────────────────────────────────────────────────
-WS_URL   = "ws://localhost:8000/ws"
+WS_URL  = "ws://localhost:8000/ws"
 MAP_W, MAP_H = 760, 400
-SCALE    = 1.8           # scale up for laptop screen
-WIN_W    = int(MAP_W * SCALE)
-WIN_H    = int(MAP_H * SCALE) + 140   # extra for status panel at bottom
-FPS      = 30
+SCALE   = 1.85
+WIN_W   = int(MAP_W * SCALE)
+PANEL_H = 150
+WIN_H   = int(MAP_H * SCALE) + PANEL_H
+FPS     = 30
 
-# ── Colours ───────────────────────────────────────────────────────────────────
-C_BG         = (6,  18,  6)
-C_ROAD       = (25, 45,  25)
-C_ROAD_LINE  = (30, 60,  30)
-C_BUILDING   = (13, 30,  13)
-C_BUILDING_B = (29, 185, 84)
-C_LABEL      = (100,180,100)
-C_ROBOT      = (29, 185, 84)
-C_ROBOT_IDLE = (80, 130, 80)
-C_TRAIL      = (20, 80,  40)
-C_HOME       = (255,200, 0)
-C_PICKUP     = (59, 130, 246)
-C_DEST       = (239, 68, 68)
-C_TEXT       = (200,230,200)
-C_DIM        = (60,  90, 60)
-C_PANEL      = (10,  22, 10)
-C_ACCENT     = (29, 185, 84)
-C_WHITE      = (255,255,255)
-C_YELLOW     = (255,220, 50)
-C_BLUE       = (80, 160, 255)
-C_RED        = (255, 80, 80)
+# ── Palette ──────────────────────────────────────────────────────────────────
+BG          = (6,   18,  6)
+ROAD        = (22,  42,  22)
+ROAD_DASH   = (30,  55,  30)
+BLDG_FILL   = (13,  30,  13)
+BLDG_BORDER = (29, 185,  84)
+BLDG_LABEL  = (90, 160,  90)
+GREEN       = (29, 185,  84)
+GREEN_DIM   = (15,  70,  35)
+GREEN_DARK  = (8,   35,  18)
+YELLOW      = (255, 220, 50)
+BLUE        = (59,  130, 246)
+RED         = (239,  68,  68)
+ORANGE      = (251, 146,  60)
+WHITE       = (220, 240, 220)
+DIM         = (50,   80,  50)
+PANEL_BG    = (8,   18,   8)
+HOME_COL    = (255, 200,  50)
+PATH_COL    = (29,  185,  84)
+LIDAR_COL   = (29,  185,  84)
+LIDAR_HIT   = (239,  68,  68)
+OBS_VEH     = (251, 146,  60)
+OBS_PED     = (167, 139, 250)
 
 BUILDINGS = [
-    {'id':'main-gate',   'x':10,  'y':10,  'w':130,'h':110,'label':'Main Gate'},
-    {'id':'admin',       'x':202, 'y':10,  'w':150,'h':110,'label':'Admin Block'},
-    {'id':'science',     'x':402, 'y':10,  'w':130,'h':110,'label':'Science Block'},
-    {'id':'library',     'x':10,  'y':162, 'w':130,'h':80, 'label':'Library'},
-    {'id':'lab-a',       'x':202, 'y':162, 'w':150,'h':80, 'label':'Lab A'},
-    {'id':'lab-b',       'x':402, 'y':162, 'w':130,'h':80, 'label':'Lab B'},
-    {'id':'canteen',     'x':602, 'y':162, 'w':130,'h':80, 'label':'Canteen'},
-    {'id':'engineering', 'x':10,  'y':292, 'w':130,'h':90, 'label':'Engineering'},
-    {'id':'hostel-a',    'x':202, 'y':292, 'w':150,'h':90, 'label':'Hostel A'},
-    {'id':'sports',      'x':402, 'y':292, 'w':130,'h':90, 'label':'Sports Complex'},
-    {'id':'medical',     'x':602, 'y':10,  'w':130,'h':110,'label':'Medical'},
-    {'id':'hostel-b',    'x':602, 'y':292, 'w':130,'h':90, 'label':'Hostel B'},
+    ('main-gate',   10,  10,  130, 110, 'Main Gate'),
+    ('admin',      202,  10,  150, 110, 'Admin Block'),
+    ('science',    402,  10,  130, 110, 'Science Block'),
+    ('library',     10, 162,  130,  80, 'Library'),
+    ('lab-a',      202, 162,  150,  80, 'Lab A'),
+    ('lab-b',      402, 162,  130,  80, 'Lab B'),
+    ('canteen',    602, 162,  130,  80, 'Canteen'),
+    ('engineering', 10, 292,  130,  90, 'Engineering'),
+    ('hostel-a',   202, 292,  150,  90, 'Hostel A'),
+    ('sports',     402, 292,  130,  90, 'Sports Complex'),
+    ('medical',    602,  10,  130, 110, 'Medical'),
+    ('hostel-b',   602, 292,  130,  90, 'Hostel B'),
 ]
-
-ROADS = [
-    (0, 140, 760, 22),
-    (0, 270, 760, 22),
-    (160, 0,  22, 400),
-    (380, 0,  22, 400),
-    (560, 0,  22, 400),
-]
-
+ROADS = [(0,140,760,22),(0,270,760,22),(160,0,22,400),(380,0,22,400),(560,0,22,400)]
 HOME_X, HOME_Y = 680.0, 170.0
 
-# ── Shared state (updated by WS thread) ───────────────────────────────────────
-state = {
-    "robot": {"x": HOME_X, "y": HOME_Y, "angle": 0, "status": "idle", "speed": 0},
-    "task":  {"item": "", "pickup": "", "dest": "", "phase": "idle"},
-    "delivery_lock": {"active": False},
-    "pickup_lock":   {"active": False},
-    "connected": False,
-    "events": [],
+# ── Shared live state ─────────────────────────────────────────────────────────
+live = {
+    "robot":    {"x":HOME_X,"y":HOME_Y,"angle":0,"status":"idle","speed":0,
+                 "battery":100,"eta":0,"phase":"idle","task":""},
+    "path":     [],
+    "trail":    [],
+    "obstacles":[],
+    "lidar":    {"points":[],"nearest":9999,"obstacle_count":0},
+    "ai":       {"learning_progress":0,"confidence":0,"route_efficiency":0,"total_plans":0},
+    "pickup":   None,
+    "dest":     None,
+    "lock":     {"active":False,"item":"","dest":""},
+    "pickup_lock": {"active":False,"item":"","pickup":""},
+    "deliveries":  [],
+    "task":        {"item":"","pickup":"","dest":"","phase":"idle"},
+    "connected":   False,
+    "events":      [],
 }
-trail = []   # list of (x, y) in map coords
 
-
-# ── WebSocket listener (runs in background thread) ────────────────────────────
+# ── WebSocket background thread ───────────────────────────────────────────────
 def ws_thread():
-    async def listen():
+    async def run():
         while True:
             try:
-                async with websockets.connect(WS_URL) as ws:
-                    state["connected"] = True
+                async with websockets.connect(WS_URL, ping_interval=20) as ws:
+                    live["connected"] = True
                     async for raw in ws:
                         try:
                             msg = json.loads(raw)
-                            if msg.get("type") == "state":
-                                r = msg.get("robot", {})
-                                state["robot"].update(r)
-                                t = msg.get("task", {})
-                                state["task"].update(t)
-                                state["delivery_lock"] = msg.get("delivery_lock", {})
-                                state["pickup_lock"]   = msg.get("pickup_lock", {})
-                                rx, ry = r.get("x", HOME_X), r.get("y", HOME_Y)
-                                if r.get("status") != "idle":
-                                    if not trail or math.hypot(rx-trail[-1][0], ry-trail[-1][1]) > 4:
-                                        trail.append((rx, ry))
-                                        if len(trail) > 120:
-                                            trail.pop(0)
-                                else:
-                                    trail.clear()
-                            elif msg.get("type") in ("pickup_lock","delivery_lock","pickup_unlocked","delivery_unlocked"):
-                                state["events"].append(msg.get("message","") or msg.get("type",""))
-                                if len(state["events"]) > 5:
-                                    state["events"].pop(0)
+                            t   = msg.get("type","")
+                            if t == "state":
+                                for k in ("robot","path","trail","obstacles","lidar","ai",
+                                          "pickup","dest","lock","pickup_lock","deliveries"):
+                                    if k in msg:
+                                        live[k] = msg[k]
+                                live["task"] = {
+                                    "item":   msg.get("robot",{}).get("task",""),
+                                    "pickup": "",
+                                    "dest":   msg.get("robot",{}).get("destination",""),
+                                    "phase":  msg.get("robot",{}).get("phase","idle"),
+                                }
+                                if live["deliveries"]:
+                                    d = live["deliveries"][0]
+                                    live["task"]["pickup"] = d.get("pickup","")
+                                    live["task"]["item"]   = d.get("item","")
+                            elif t in ("pickup_lock","delivery_lock","pickup_unlocked",
+                                       "delivery_unlocked","pickup_unlock_error","unlock_error"):
+                                live["events"].append((t, msg.get("message","") or t))
+                                if len(live["events"]) > 6:
+                                    live["events"].pop(0)
                         except Exception:
                             pass
             except Exception:
-                state["connected"] = False
+                live["connected"] = False
                 await asyncio.sleep(3)
+    asyncio.run(run())
 
-    asyncio.run(listen())
-
-
-# ── Draw helpers ──────────────────────────────────────────────────────────────
+# ── Coordinate helpers ────────────────────────────────────────────────────────
 def sx(x): return int(x * SCALE)
 def sy(y): return int(y * SCALE)
 def sr(r): return max(1, int(r * SCALE))
 
+# ── Static map (drawn once) ───────────────────────────────────────────────────
+def build_map_surface(font_bldg):
+    s = pygame.Surface((WIN_W, int(MAP_H * SCALE)))
+    s.fill(BG)
+    for rx,ry,rw,rh in ROADS:
+        pygame.draw.rect(s, ROAD, (sx(rx),sy(ry),sx(rw),sy(rh)))
+        if rw > rh:
+            cy = sy(ry + rh//2)
+            for dx in range(0, sx(rw), 26):
+                pygame.draw.line(s, ROAD_DASH, (sx(rx)+dx,cy),(sx(rx)+dx+12,cy),1)
+        else:
+            cx = sx(rx + rw//2)
+            for dy in range(0, sy(rh), 26):
+                pygame.draw.line(s, ROAD_DASH, (cx,sy(ry)+dy),(cx,sy(ry)+dy+12),1)
+    for _,bx,by,bw,bh,label in BUILDINGS:
+        r = pygame.Rect(sx(bx),sy(by),sx(bw),sy(bh))
+        pygame.draw.rect(s, BLDG_FILL,   r, border_radius=4)
+        pygame.draw.rect(s, BLDG_BORDER, r, 1, border_radius=4)
+        lbl = font_bldg.render(label, True, BLDG_LABEL)
+        s.blit(lbl, lbl.get_rect(center=r.center))
+    # Home base
+    pygame.draw.circle(s, HOME_COL, (sx(HOME_X),sy(HOME_Y)), sr(8))
+    pygame.draw.circle(s, BG,       (sx(HOME_X),sy(HOME_Y)), sr(4))
+    htxt = font_bldg.render("HOME", True, HOME_COL)
+    s.blit(htxt, (sx(HOME_X)+sr(10), sy(HOME_Y)-htxt.get_height()//2))
+    return s
 
-def draw_map(surf):
-    surf.fill(C_BG)
+# ── Draw planned A* path ──────────────────────────────────────────────────────
+def draw_path(surf, path):
+    if len(path) < 2:
+        return
+    pts = [(sx(p["x"]), sy(p["y"])) for p in path]
+    for i in range(1, len(pts)):
+        if i % 2 == 0:
+            pygame.draw.line(surf, GREEN_DIM, pts[i-1], pts[i], 1)
 
-    # Roads
-    for rx, ry, rw, rh in ROADS:
-        pygame.draw.rect(surf, C_ROAD, (sx(rx), sy(ry), sx(rw), sy(rh)))
-
-    # Road centre dashes
-    for rx, ry, rw, rh in ROADS:
-        if rw > rh:   # horizontal
-            cy = sy(ry + rh // 2)
-            for dx in range(0, sx(rw), 24):
-                pygame.draw.line(surf, C_ROAD_LINE, (sx(rx)+dx, cy), (sx(rx)+dx+12, cy), 1)
-        else:          # vertical
-            cx = sx(rx + rw // 2)
-            for dy in range(0, sy(rh), 24):
-                pygame.draw.line(surf, C_ROAD_LINE, (cx, sy(ry)+dy), (cx, sy(ry)+dy+12), 1)
-
-    # Buildings
-    font_s = pygame.font.SysFont("consolas", int(9*SCALE*0.55), bold=False)
-    for b in BUILDINGS:
-        r = pygame.Rect(sx(b['x']), sy(b['y']), sx(b['w']), sy(b['h']))
-        pygame.draw.rect(surf, C_BUILDING, r, border_radius=4)
-        pygame.draw.rect(surf, C_BUILDING_B, r, 1, border_radius=4)
-        lbl = font_s.render(b['label'], True, C_LABEL)
-        surf.blit(lbl, lbl.get_rect(center=r.center))
-
-    # Home marker
-    hx, hy = sx(HOME_X), sy(HOME_Y)
-    pygame.draw.circle(surf, C_HOME, (hx, hy), sr(8))
-    pygame.draw.circle(surf, C_BG,   (hx, hy), sr(4))
-
-
-def draw_trail(surf):
+# ── Draw server trail ─────────────────────────────────────────────────────────
+def draw_trail(surf, trail):
     if len(trail) < 2:
         return
-    pts = [(sx(x), sy(y)) for x, y in trail]
+    pts = [(sx(p["x"]), sy(p["y"])) for p in trail]
     for i in range(1, len(pts)):
-        alpha = int(180 * i / len(pts))
-        c = (C_TRAIL[0], min(255, C_TRAIL[1] + alpha//2), C_TRAIL[2])
+        t = i / len(pts)
+        c = (int(GREEN_DARK[0]+t*20), int(GREEN_DARK[1]+t*60), int(GREEN_DARK[2]+t*20))
         pygame.draw.line(surf, c, pts[i-1], pts[i], 2)
 
+# ── Draw LIDAR rays ───────────────────────────────────────────────────────────
+def draw_lidar(surf, robot, lidar_pts):
+    rx, ry = sx(robot["x"]), sy(robot["y"])
+    for pt in lidar_pts:
+        hit  = pt.get("hit", False)
+        dist = pt.get("distance", 0)
+        ang  = math.radians(pt.get("angle", 0))
+        ex   = rx + int(math.cos(ang) * dist * SCALE)
+        ey   = ry - int(math.sin(ang) * dist * SCALE)
+        col  = (*LIDAR_HIT, 120) if hit else (*LIDAR_COL, 35)
+        line_surf = pygame.Surface((WIN_W, int(MAP_H*SCALE)), pygame.SRCALPHA)
+        pygame.draw.line(line_surf, col, (rx,ry), (ex,ey), 1)
+        surf.blit(line_surf, (0,0))
+        if hit:
+            pygame.draw.circle(surf, LIDAR_HIT, (ex,ey), sr(3))
 
+# ── Draw dynamic obstacles ────────────────────────────────────────────────────
+def draw_obstacles(surf, obstacles, font_tiny):
+    for obs in obstacles:
+        ox, oy = sx(obs["x"]), sy(obs["y"])
+        r      = sr(obs.get("radius", 8))
+        is_veh = obs.get("type") == "vehicle"
+        col    = OBS_VEH if is_veh else OBS_PED
+        if is_veh:
+            pygame.draw.rect(surf, col, (ox-r, oy-r//2, r*2, r), border_radius=2)
+            pygame.draw.rect(surf, (*col,180), (ox-r,oy-r//2,r*2,r), 1, border_radius=2)
+        else:
+            pygame.draw.circle(surf, col, (ox,oy), r)
+            pygame.draw.circle(surf, (*col,200), (ox,oy), r, 1)
+        tag = font_tiny.render("V" if is_veh else "P", True, BG)
+        surf.blit(tag, tag.get_rect(center=(ox,oy)))
+
+# ── Draw pickup / destination markers ────────────────────────────────────────
+def draw_markers(surf, pickup, dest, font_m):
+    if pickup:
+        px, py = sx(pickup["x"]), sy(pickup["y"])
+        pygame.draw.circle(surf, BLUE, (px,py), sr(12), 2)
+        pygame.draw.circle(surf, (*BLUE,60), (px,py), sr(18), 1)
+        lbl = font_m.render("P", True, BLUE)
+        surf.blit(lbl, lbl.get_rect(center=(px,py)))
+
+    if dest:
+        dx, dy = sx(dest["x"]), sy(dest["y"])
+        pygame.draw.circle(surf, RED, (dx,dy), sr(12), 2)
+        pygame.draw.circle(surf, (*RED,60), (dx,dy), sr(18), 1)
+        lbl = font_m.render("D", True, RED)
+        surf.blit(lbl, lbl.get_rect(center=(dx,dy)))
+
+# ── Draw robot ────────────────────────────────────────────────────────────────
 def draw_robot(surf, robot):
-    rx, ry   = sx(robot["x"]), sy(robot["y"])
-    angle    = robot.get("angle", 0)
-    status   = robot.get("status", "idle")
-    moving   = status not in ("idle",)
-    col      = C_ROBOT if moving else C_ROBOT_IDLE
+    rx, ry  = sx(robot["x"]), sy(robot["y"])
+    angle   = robot.get("angle", 0)
+    status  = robot.get("status","idle")
+    moving  = status not in ("idle",)
 
-    # Glow ring
+    status_col = {
+        "idle":"#1db954","moving":"#1db954","arrived":"#fbbf24",
+        "returning":"#3b82f6","avoiding":"#ef4444","rerouting":"#f97316",
+    }
+    col = pygame.Color(status_col.get(status,"#1db954"))
+
+    # Outer glow
     if moving:
-        glow = pygame.Surface((sr(40), sr(40)), pygame.SRCALPHA)
-        pygame.draw.circle(glow, (*col, 40), (sr(20), sr(20)), sr(20))
-        surf.blit(glow, (rx - sr(20), ry - sr(20)))
+        glow = pygame.Surface((sr(60),sr(60)), pygame.SRCALPHA)
+        pygame.draw.circle(glow, (*col[:3],30),(sr(30),sr(30)),sr(30))
+        pygame.draw.circle(glow, (*col[:3],15),(sr(30),sr(30)),sr(22))
+        surf.blit(glow,(rx-sr(30),ry-sr(30)))
 
-    # Body
-    pygame.draw.circle(surf, col,  (rx, ry), sr(11))
-    pygame.draw.circle(surf, C_BG, (rx, ry), sr(7))
+    # Body rings
+    pygame.draw.circle(surf, col[:3], (rx,ry), sr(13))
+    pygame.draw.circle(surf, BG,      (rx,ry), sr(9))
+    pygame.draw.circle(surf, col[:3], (rx,ry), sr(5))
 
     # Direction arrow
     rad = math.radians(angle)
-    ax  = rx + int(math.cos(rad) * sr(9))
-    ay  = ry - int(math.sin(rad) * sr(9))
-    pygame.draw.line(surf, col, (rx, ry), (ax, ay), sr(3))
+    ax  = rx + int(math.cos(rad)*sr(11))
+    ay  = ry - int(math.sin(rad)*sr(11))
+    pygame.draw.line(surf, col[:3], (rx,ry),(ax,ay), sr(3))
 
+    # Speed ring arc
+    spd = min(robot.get("speed",0)/3.5, 1.0)
+    if spd > 0.05:
+        pygame.draw.arc(surf, col[:3],
+                        pygame.Rect(rx-sr(16),ry-sr(16),sr(32),sr(32)),
+                        math.pi/2, math.pi/2 + spd*2*math.pi, sr(2))
 
-def draw_markers(surf, task):
-    font_m = pygame.font.SysFont("consolas", int(10*SCALE*0.55), bold=True)
-    phase  = task.get("phase", "idle")
+# ── Draw status panel ─────────────────────────────────────────────────────────
+def draw_panel(surf, fonts, robot, task, lidar, ai, lock, pickup_lock, events, connected):
+    fb, fs, ft = fonts
+    y0 = int(MAP_H * SCALE)
+    pygame.draw.rect(surf, PANEL_BG, (0, y0, WIN_W, PANEL_H))
+    pygame.draw.line(surf, GREEN,    (0, y0), (WIN_W, y0), 1)
 
-    from constants import DEST_COORDS
-    pickup = task.get("pickup", "")
-    dest   = task.get("dest",   "")
+    status  = robot.get("status","idle").upper()
+    battery = robot.get("battery",100)
+    speed   = robot.get("speed",0)
+    eta     = robot.get("eta",0)
+    phase   = robot.get("phase","idle").replace("_"," ").upper()
+    nearest = lidar.get("nearest",9999)
+    obs_cnt = lidar.get("obstacle_count",0)
+    ai_conf = ai.get("confidence",0)
+    ai_eff  = ai.get("route_efficiency",0)
+    plans   = ai.get("total_plans",0)
 
-    if pickup and pickup in DEST_COORDS and phase in ("to_pickup","at_pickup","to_dest","delivering"):
-        px, py = DEST_COORDS[pickup]
-        pygame.draw.circle(surf, C_PICKUP, (sx(px), sy(py)), sr(9), 2)
-        lbl = font_m.render("P", True, C_PICKUP)
-        surf.blit(lbl, (sx(px)-lbl.get_width()//2, sy(py)-lbl.get_height()//2))
+    stat_col = {
+        "IDLE":GREEN_DIM,"MOVING":GREEN,"ARRIVED":YELLOW,
+        "RETURNING":BLUE,"AVOIDING":RED,"REROUTING":ORANGE,
+    }.get(status, WHITE)
 
-    if dest and dest in DEST_COORDS and phase in ("to_dest","delivering"):
-        dx, dy = DEST_COORDS[dest]
-        pygame.draw.circle(surf, C_DEST, (sx(dx), sy(dy)), sr(9), 2)
-        lbl = font_m.render("D", True, C_DEST)
-        surf.blit(lbl, (sx(dx)-lbl.get_width()//2, sy(dy)-lbl.get_height()//2))
-
-
-def draw_panel(surf, font_b, font_s, robot, task, connected):
-    py_off = int(MAP_H * SCALE)
-    panel  = pygame.Rect(0, py_off, WIN_W, WIN_H - py_off)
-    pygame.draw.rect(surf, C_PANEL, panel)
-    pygame.draw.line(surf, C_ACCENT, (0, py_off), (WIN_W, py_off), 1)
-
-    status  = robot.get("status", "idle").upper()
-    speed   = robot.get("speed",  0)
-    phase   = task.get("phase",   "idle").upper().replace("_"," ")
-    item    = task.get("item",    "") or "—"
-    pickup  = task.get("pickup",  "") or "—"
-    dest    = task.get("dest",    "") or "—"
-
-    status_col = {
-        "IDLE": C_DIM, "MOVING": C_ACCENT, "ARRIVED": C_YELLOW,
-        "RETURNING": C_BLUE, "AVOIDING": C_RED,
-    }.get(status, C_TEXT)
-
-    # Row 1
-    y1 = py_off + 10
-    col_w = WIN_W // 4
-    labels = [
-        ("STATUS",  status,          status_col),
-        ("PHASE",   phase,           C_TEXT),
-        ("SPEED",   f"{speed:.1f}u/t", C_TEXT),
-        ("NETWORK", "LIVE" if connected else "OFFLINE",
-                    C_ACCENT if connected else C_RED),
+    # ── Row 1: robot vitals ──────────────────────────────────────────
+    row1 = [
+        ("STATUS",  status,              stat_col),
+        ("PHASE",   phase,               WHITE),
+        ("SPEED",   f"{speed:.1f} u/t",  WHITE),
+        ("BATTERY", f"{battery:.0f}%",
+                    GREEN if battery>50 else YELLOW if battery>20 else RED),
+        ("ETA",     f"{eta:.0f}s" if eta>0 else "—", WHITE),
+        ("NETWORK", "● LIVE" if connected else "○ OFF",
+                    GREEN if connected else RED),
     ]
-    for i, (head, val, col) in enumerate(labels):
-        hx = i * col_w + 12
-        surf.blit(font_s.render(head, True, C_DIM),  (hx, y1))
-        surf.blit(font_b.render(val,  True, col),    (hx, y1 + 16))
+    cw = WIN_W // len(row1)
+    for i,(head,val,col) in enumerate(row1):
+        hx = i*cw+10
+        surf.blit(fs.render(head, True, DIM),  (hx, y0+8))
+        surf.blit(fb.render(val,  True, col),  (hx, y0+22))
 
-    # Row 2
-    y2 = py_off + 60
-    surf.blit(font_s.render("ITEM",    True, C_DIM), (12,            y2))
-    surf.blit(font_s.render("PICKUP",  True, C_DIM), (WIN_W//3,      y2))
-    surf.blit(font_s.render("DEST",    True, C_DIM), (WIN_W*2//3,    y2))
-    surf.blit(font_b.render(item[:22],   True, C_TEXT), (12,          y2+16))
-    surf.blit(font_b.render(pickup[:22], True, C_BLUE), (WIN_W//3,    y2+16))
-    surf.blit(font_b.render(dest[:22],   True, C_RED),  (WIN_W*2//3,  y2+16))
+    # ── Row 2: task + sensors ────────────────────────────────────────
+    item   = task.get("item","")   or "—"
+    pickup = task.get("pickup","") or "—"
+    dest   = task.get("dest","")   or "—"
 
-    # Lock indicators
-    if state["pickup_lock"].get("active"):
-        lk = font_b.render("  PICKUP LOCK ACTIVE — Check phone  ", True, C_BG)
-        bg = pygame.Surface((lk.get_width()+4, lk.get_height()+4))
-        bg.fill(C_BLUE); surf.blit(bg, (WIN_W//2 - bg.get_width()//2, y2+50))
-        surf.blit(lk, (WIN_W//2 - lk.get_width()//2, y2+52))
-    elif state["delivery_lock"].get("active"):
-        lk = font_b.render("  DELIVERY LOCK ACTIVE — Check phone  ", True, C_BG)
-        bg = pygame.Surface((lk.get_width()+4, lk.get_height()+4))
-        bg.fill(C_RED); surf.blit(bg, (WIN_W//2 - bg.get_width()//2, y2+50))
-        surf.blit(lk, (WIN_W//2 - lk.get_width()//2, y2+52))
+    row2 = [
+        ("ITEM",    item[:20],   WHITE),
+        ("PICKUP",  pickup[:18], BLUE),
+        ("DEST",    dest[:18],   RED),
+        ("LIDAR",   f"{nearest:.0f}u / {obs_cnt} obs", ORANGE if obs_cnt>0 else WHITE),
+        ("AI CONF", f"{ai_conf:.0f}%",  GREEN),
+        ("ROUTES",  str(plans),          WHITE),
+    ]
+    for i,(head,val,col) in enumerate(row2):
+        hx = i*cw+10
+        surf.blit(fs.render(head, True, DIM), (hx, y0+58))
+        surf.blit(fb.render(val,  True, col), (hx, y0+72))
+
+    # ── Lock banners ─────────────────────────────────────────────────
+    by = y0 + 110
+    if pickup_lock.get("active"):
+        msg = f"  PICKUP LOCK  —  {pickup_lock.get('item','')}  —  Enter OTP on phone  "
+        _banner(surf, fb, msg, BLUE, by)
+    elif lock.get("active"):
+        msg = f"  DELIVERY LOCK  —  {lock.get('item','')}  —  Enter OTP on phone  "
+        _banner(surf, fb, msg, RED, by)
+
+    # ── Live events (right side) ─────────────────────────────────────
+    ew = 280
+    for j, (evtype, evmsg) in enumerate(reversed(events[-3:])):
+        ec = BLUE if "pickup" in evtype else RED if "unlock" in evtype or "error" in evtype else GREEN
+        ev = ft.render(f"▶ {evmsg[:38]}", True, ec)
+        surf.blit(ev, (WIN_W-ew, y0+8+j*18))
+
+    # ── Legend (bottom-left) ─────────────────────────────────────────
+    legend = [("● Robot",(29,185,84)),("── Path",GREEN_DIM),
+              ("◉ Pickup",BLUE),("◉ Dest",RED),
+              ("■ Vehicle",OBS_VEH),("● Person",OBS_PED),
+              ("· LIDAR",LIDAR_COL)]
+    for j,(txt,col) in enumerate(legend):
+        surf.blit(ft.render(txt, True, col),(10+j*98, y0+PANEL_H-20))
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+def _banner(surf, fb, msg, col, y):
+    lbl = fb.render(msg, True, BG)
+    w   = lbl.get_width()+8
+    bg  = pygame.Surface((w, lbl.get_height()+6))
+    bg.fill(col)
+    surf.blit(bg,  (WIN_W//2 - w//2, y))
+    surf.blit(lbl, (WIN_W//2 - w//2+4, y+3))
+
+
+# ── Main loop ─────────────────────────────────────────────────────────────────
 def main():
     pygame.init()
-    pygame.display.set_caption("DeliveryBot — Live Simulation")
+    pygame.display.set_caption("DeliveryBot — Live Simulation  |  ESC to quit")
     surf  = pygame.display.set_mode((WIN_W, WIN_H))
     clock = pygame.time.Clock()
 
-    font_b = pygame.font.SysFont("consolas", int(11*SCALE*0.55), bold=True)
-    font_s = pygame.font.SysFont("consolas", int(9*SCALE*0.55))
+    scale_pt = lambda p: int(p * SCALE * 0.52)
+    fb  = pygame.font.SysFont("consolas", scale_pt(20), bold=True)
+    fs  = pygame.font.SysFont("consolas", scale_pt(17))
+    ft  = pygame.font.SysFont("consolas", scale_pt(15))
+    fbldg = pygame.font.SysFont("consolas", scale_pt(16))
+    fm  = pygame.font.SysFont("consolas", scale_pt(22), bold=True)
+    ftn = pygame.font.SysFont("consolas", scale_pt(13), bold=True)
 
-    # Static map surface (drawn once)
-    map_surf = pygame.Surface((WIN_W, int(MAP_H * SCALE)))
-    draw_map(map_surf)
+    map_surf = build_map_surface(fbldg)
 
-    # Start WS listener in background
-    t = threading.Thread(target=ws_thread, daemon=True)
-    t.start()
+    threading.Thread(target=ws_thread, daemon=True).start()
+    print("DeliveryBot Pygame Viewer started — waiting for backend on ws://localhost:8000/ws")
 
-    print("DeliveryBot Pygame Viewer — connecting to ws://localhost:8000/ws ...")
+    # LIDAR layer (redrawn each frame with alpha)
+    lidar_layer = pygame.Surface((WIN_W, int(MAP_H*SCALE)), pygame.SRCALPHA)
 
     while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                pygame.quit()
-                sys.exit()
+        for ev in pygame.event.get():
+            if ev.type == pygame.QUIT:
+                pygame.quit(); sys.exit()
+            if ev.type == pygame.KEYDOWN and ev.key == pygame.K_ESCAPE:
+                pygame.quit(); sys.exit()
 
-        # Composite frame
+        r  = live["robot"]
+        connected = live["connected"]
+
+        # Base map
         surf.blit(map_surf, (0, 0))
-        draw_trail(surf)
 
-        sys.path.insert(0, "sim")
-        draw_markers(surf, state["task"])
-        draw_robot(surf,   state["robot"])
-        draw_panel(surf, font_b, font_s, state["robot"], state["task"], state["connected"])
+        # A* planned path (dashed green)
+        draw_path(surf, live["path"])
+
+        # Server trail
+        draw_trail(surf, live["trail"])
+
+        # LIDAR rays (semi-transparent layer)
+        lidar_layer.fill((0,0,0,0))
+        for pt in live["lidar"].get("points",[]):
+            hit  = pt.get("hit", False)
+            dist = pt.get("distance", 0)
+            ang  = math.radians(pt.get("angle", 0))
+            rx2  = sx(r["x"]); ry2 = sy(r["y"])
+            ex   = rx2 + int(math.cos(ang)*dist*SCALE)
+            ey   = ry2 - int(math.sin(ang)*dist*SCALE)
+            col  = (239,68,68,100) if hit else (29,185,84,25)
+            pygame.draw.line(lidar_layer, col, (rx2,ry2),(ex,ey),1)
+            if hit:
+                pygame.draw.circle(lidar_layer, (239,68,68,200),(ex,ey),sr(3))
+        surf.blit(lidar_layer, (0,0))
+
+        # Dynamic obstacles
+        draw_obstacles(surf, live["obstacles"], ftn)
+
+        # Pickup / dest markers
+        draw_markers(surf, live["pickup"], live["dest"], fm)
+
+        # Robot
+        draw_robot(surf, r)
+
+        # Status panel
+        draw_panel(surf, (fb,fs,ft), r, live["task"],
+                   live["lidar"], live["ai"],
+                   live["lock"], live["pickup_lock"],
+                   live["events"], connected)
+
+        # Connecting overlay
+        if not connected:
+            ov = pygame.Surface((WIN_W, int(MAP_H*SCALE)), pygame.SRCALPHA)
+            ov.fill((0,0,0,120))
+            surf.blit(ov,(0,0))
+            msg = fb.render("Connecting to simulation backend...", True, GREEN)
+            surf.blit(msg, msg.get_rect(center=(WIN_W//2, int(MAP_H*SCALE)//2)))
 
         pygame.display.flip()
         clock.tick(FPS)
-
 
 if __name__ == "__main__":
     main()
