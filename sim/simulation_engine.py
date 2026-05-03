@@ -155,7 +155,7 @@ class SimulationEngine:
         self,
         destination: str,
         item: str,
-        pickup: str = "Admin Block",
+        pickup: str = "Admin Tower",
         receiver: str = "",
         receiver_email: str = "",
         sender_email: str = "",

@@ -7,27 +7,57 @@
 // ── Building layout ──────────────────────────
 const CAMPUS_MAP = {
   roads: [
-    { x: 0,   y: 140, w: 760, h: 22, label: 'Main Road' },
-    { x: 0,   y: 270, w: 760, h: 22 },
-    { x: 160, y: 0,   w: 22,  h: 400 },
-    { x: 380, y: 0,   w: 22,  h: 400 },
-    { x: 560, y: 0,   w: 22,  h: 400 },
+    { x:   0, y:  88, w: 760, h: 18, label: 'Main Road' },
+    { x:   0, y: 188, w: 760, h: 18, label: 'Ring Road' },
+    { x:   0, y: 268, w: 760, h: 18 },
+    { x:   0, y: 348, w: 760, h: 18 },
+    { x: 118, y:   0, w:  18, h: 400 },
+    { x: 238, y:   0, w:  18, h: 400 },
+    { x: 368, y:   0, w:  18, h: 400 },
+    { x: 498, y:   0, w:  18, h: 400 },
+    { x: 618, y:   0, w:  18, h: 400 },
   ],
   buildings: [
-    { id: 'main-gate',  x: 10,  y: 10,  w: 130, h: 110, label: 'Main Gate',       icon: '🏛', color: '#e8f5e9' },
-    { id: 'admin',      x: 202, y: 10,  w: 150, h: 110, label: 'Admin Block',      icon: '🏢', color: '#e3f2fd' },
-    { id: 'science',    x: 402, y: 10,  w: 130, h: 110, label: 'Science Block',    icon: '🔬', color: '#fff3e0' },
-    { id: 'library',    x: 10,  y: 162, w: 130, h: 80,  label: 'Library',          icon: '📚', color: '#fce4ec' },
-    { id: 'lab-a',      x: 202, y: 162, w: 150, h: 80,  label: 'Lab A – Chemistry',icon: '⚗️', color: '#f3e5f5' },
-    { id: 'lab-b',      x: 402, y: 162, w: 130, h: 80,  label: 'Lab B – Physics',  icon: '⚡', color: '#e8eaf6' },
-    { id: 'canteen',    x: 602, y: 162, w: 130, h: 80,  label: 'Canteen',          icon: '🍽', color: '#fff8e1' },
-    { id: 'engineering',x: 10,  y: 292, w: 130, h: 90,  label: 'Engineering',      icon: '⚙️', color: '#e0f2f1' },
-    { id: 'hostel-a',   x: 202, y: 292, w: 150, h: 90,  label: 'Hostel A',         icon: '🏠', color: '#fbe9e7' },
-    { id: 'sports',     x: 402, y: 292, w: 130, h: 90,  label: 'Sports Complex',   icon: '⚽', color: '#e1f5fe' },
-    { id: 'medical',    x: 602, y: 10,  w: 130, h: 110, label: 'Medical Centre',   icon: '🏥', color: '#e8f5e9' },
-    { id: 'hostel-b',   x: 602, y: 292, w: 130, h: 90,  label: 'Hostel B',         icon: '🏘', color: '#fff3e0' },
+    // Row 0
+    { id: 'admin-tower',    x:   6, y:   6, w: 106, h: 76, label: 'Admin Tower',      icon: '🏛', color: '#e3f2fd' },
+    { id: 'lab-c-a',        x: 140, y:   6, w:  36, h: 76, label: 'Lab C – Alpha',    icon: '⚗️', color: '#f3e5f5' },
+    { id: 'lab-c-b',        x: 198, y:   6, w:  34, h: 76, label: 'Lab C – Beta',     icon: '⚗️', color: '#f3e5f5' },
+    { id: 'science-tower',  x: 262, y:   6, w: 100, h: 76, label: 'Science Tower',    icon: '🔬', color: '#fff3e0' },
+    { id: 'classroom-101',  x: 392, y:   6, w:  40, h: 76, label: 'Classroom 101',    icon: '📖', color: '#e8f5e9' },
+    { id: 'seminar-hall',   x: 452, y:   6, w:  40, h: 76, label: 'Seminar Hall',     icon: '🎓', color: '#e8eaf6' },
+    { id: 'engineering-b',  x: 522, y:   6, w:  90, h: 76, label: 'Engineering',      icon: '⚙️', color: '#e0f2f1' },
+    { id: 'medical-a',      x: 642, y:   6, w:  46, h: 76, label: 'Medical – A',      icon: '🏥', color: '#fce4ec' },
+    { id: 'medical-b',      x: 708, y:   6, w:  46, h: 76, label: 'Medical – B',      icon: '🏥', color: '#fce4ec' },
+    // Row 1
+    { id: 'library',        x:   6, y: 112, w: 106, h: 70, label: 'Library',          icon: '📚', color: '#fce4ec' },
+    { id: 'cs-block',       x: 140, y: 112, w:  92, h: 70, label: 'CS Block',         icon: '💻', color: '#e3f2fd' },
+    { id: 'research-lab',   x: 262, y: 112, w:  40, h: 70, label: 'Research Lab',     icon: '🧪', color: '#fff8e1' },
+    { id: 'innovation-hub', x: 322, y: 112, w:  40, h: 70, label: 'Innovation Hub',   icon: '💡', color: '#f3e5f5' },
+    { id: 'business-sch',   x: 392, y: 112, w: 100, h: 70, label: 'Business School',  icon: '💼', color: '#e8eaf6' },
+    { id: 'hostel-c',       x: 522, y: 112, w:  35, h: 70, label: 'Hostel C',         icon: '🏠', color: '#fbe9e7' },
+    { id: 'hostel-d',       x: 577, y: 112, w:  35, h: 70, label: 'Hostel D',         icon: '🏠', color: '#fbe9e7' },
+    { id: 'cafeteria',      x: 642, y: 112, w: 112, h: 70, label: 'Cafeteria',        icon: '🍽', color: '#fff8e1' },
+    // Row 2
+    { id: 'main-gate',      x:   6, y: 212, w: 106, h: 50, label: 'Main Gate',        icon: '🏛', color: '#e8f5e9' },
+    { id: 'pharmacy',       x: 140, y: 212, w:  36, h: 50, label: 'Pharmacy',         icon: '💊', color: '#e8f5e9' },
+    { id: 'clinic',         x: 198, y: 212, w:  34, h: 50, label: 'Clinic',           icon: '🏥', color: '#fce4ec' },
+    { id: 'auditorium',     x: 262, y: 212, w: 100, h: 50, label: 'Auditorium',       icon: '🎭', color: '#e8eaf6' },
+    { id: 'workshop-a',     x: 392, y: 212, w:  40, h: 50, label: 'Workshop A',       icon: '🔧', color: '#fff3e0' },
+    { id: 'workshop-b',     x: 452, y: 212, w:  40, h: 50, label: 'Workshop B',       icon: '🔧', color: '#fff3e0' },
+    { id: 'sports-complex', x: 522, y: 212, w:  90, h: 50, label: 'Sports Complex',   icon: '⚽', color: '#e1f5fe' },
+    { id: 'hostel-a',       x: 642, y: 212, w:  46, h: 50, label: 'Hostel A',         icon: '🏘', color: '#fbe9e7' },
+    { id: 'hostel-b',       x: 708, y: 212, w:  46, h: 50, label: 'Hostel B',         icon: '🏘', color: '#fbe9e7' },
+    // Row 3
+    { id: 'parking-a',      x:   6, y: 292, w: 106, h: 50, label: 'Parking',          icon: '🅿', color: '#f5f5f5' },
+    { id: 'canteen',        x: 140, y: 292, w:  92, h: 50, label: 'Canteen',          icon: '🍜', color: '#fff8e1' },
+    { id: 'art-studio',     x: 262, y: 292, w:  40, h: 50, label: 'Art Studio',       icon: '🎨', color: '#f3e5f5' },
+    { id: 'design-lab',     x: 322, y: 292, w:  40, h: 50, label: 'Design Lab',       icon: '📐', color: '#f3e5f5' },
+    { id: 'gymnasium',      x: 392, y: 292, w: 100, h: 50, label: 'Gymnasium',        icon: '🏋', color: '#e0f2f1' },
+    { id: 'staff-a',        x: 522, y: 292, w:  35, h: 50, label: 'Staff – A',        icon: '👤', color: '#e8f5e9' },
+    { id: 'staff-b',        x: 577, y: 292, w:  35, h: 50, label: 'Staff – B',        icon: '👤', color: '#e8f5e9' },
+    { id: 'conf-hall',      x: 642, y: 292, w: 112, h: 50, label: 'Conference Hall',  icon: '📊', color: '#e3f2fd' },
   ],
-  homeBase: { x: 680, y: 170, label: 'Home Base' },
+  homeBase: { x: 700, y: 197, label: 'Home Base' },
 };
 
 // Map canvas and state
@@ -399,18 +429,18 @@ function updateMapBadge() {
 
 // ── Route builder ─────────────────────────────
 function buildCampusRoute(fromCoord, toCoord) {
-  // Simple L-shaped routing through roads
-  const roadY1 = 151; // center of upper road
-  const roadY2 = 281; // center of lower road
-  const roadX1 = 171;
-  const roadX2 = 391;
-  const roadX3 = 571;
-
-  const midY = Math.abs(fromCoord.y - 151) < 50 || Math.abs(toCoord.y - 151) < 50 ? roadY1 : roadY2;
+  // Pick the horizontal road whose center-y is closest to the midpoint of the trip
+  const horizRoads = [97, 197, 277, 357]; // H1..H4 center y-values
+  const midY = (fromCoord.y + toCoord.y) / 2;
+  let bestRoad = horizRoads[0], bestDist = Infinity;
+  for (const ry of horizRoads) {
+    const d = Math.abs(ry - midY);
+    if (d < bestDist) { bestDist = d; bestRoad = ry; }
+  }
   return [
     { ...fromCoord },
-    { x: fromCoord.x, y: midY },
-    { x: toCoord.x,   y: midY },
+    { x: fromCoord.x, y: bestRoad },
+    { x: toCoord.x,   y: bestRoad },
     { ...toCoord }
   ].filter((pt, i, arr) => {
     if (i === 0) return true;

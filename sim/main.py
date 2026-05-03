@@ -183,7 +183,7 @@ app.include_router(auth_router)
 class DeliveryRequest(BaseModel):
     destination:    str
     item:           str
-    pickup:         str = "Admin Block"
+    pickup:         str = "Admin Tower"
     receiver:       str = ""
     receiver_email: str = ""
 
@@ -365,7 +365,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     sim.start_delivery(
                         destination=msg.get("destination", "Library"),
                         item=msg.get("item", "Package"),
-                        pickup=msg.get("pickup", "Admin Block"),
+                        pickup=msg.get("pickup", "Admin Tower"),
                         receiver=msg.get("receiver", ""),
                         receiver_email=msg.get("receiver_email", ""),
                     )

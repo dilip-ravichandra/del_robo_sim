@@ -41,7 +41,7 @@ ok("/auth/me with JWT", r.status_code == 200, r.json().get("email"))
 r = requests.post(f"{BASE}/delivery/start", headers=headers, json={
     "destination": "Library",
     "item": "Lab Report",
-    "pickup": "Admin Block",
+    "pickup": "Admin Tower",
     "receiver": "Prof. Sharma",
     "receiver_email": "diliprbtech24@rvu.edu.in",
 })
