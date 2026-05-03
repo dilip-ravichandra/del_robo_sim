@@ -313,10 +313,10 @@ const AnalyticsEngine = (() => {
     const container = document.getElementById('ai-routes');
     if (!container) return;
     const routes = [
-      { label: 'Library → Hostel A', score: 94 },
-      { label: 'Canteen → Engg',     score: 89 },
-      { label: 'Admin → Lab A',      score: 91 },
-      { label: 'Gate → Medical',     score: 87 },
+      { label: 'Library → Hostel C',          score: 94 },
+      { label: 'Cafeteria → Engineering',      score: 89 },
+      { label: 'Admin Tower → Research Lab',   score: 91 },
+      { label: 'Main Gate → Medical – A',      score: 87 },
     ];
     container.innerHTML = routes.map(r => `
       <div class="ai-route-item">
@@ -419,7 +419,7 @@ const AnalyticsEngine = (() => {
     canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
     ctx.scale(dpr, dpr);
 
-    const locations = ['Library','Canteen','Lab A','Admin','Hostel A','Medical','Engg','Gate'];
+    const locations = ['Library','Cafeteria','CS Block','Admin Tower','Hostel A','Medical – A','Engineering','Main Gate'];
     const values = [87, 64, 92, 45, 71, 38, 83, 55];
     const bH = (H - 20) / locations.length - 4;
 

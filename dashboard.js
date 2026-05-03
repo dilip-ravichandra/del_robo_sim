@@ -18,12 +18,12 @@ const AppState = {
 
 // ── Sample delivery data ──────────────────────
 const SAMPLE_DELIVERIES = [
-  { id: 'DEL-001', item: 'Lab Report',    from: 'Admin Block',  to: 'Lab A – Chemistry', receiver: 'Dr. Anand',   status: 'completed', time: '9:14 AM',   duration: '8 min' },
-  { id: 'DEL-002', item: 'Medical Docs',  from: 'Main Gate',    to: 'Medical Centre',    receiver: 'Nurse Priya', status: 'completed', time: '10:32 AM',  duration: '11 min' },
-  { id: 'DEL-003', item: 'Books',         from: 'Library',      to: 'Hostel A',          receiver: 'Arjun M.',    status: 'completed', time: '11:05 AM',  duration: '14 min' },
-  { id: 'DEL-004', item: 'Lunch Parcel',  from: 'Canteen',      to: 'Room 205 – Engg',   receiver: 'Prof. Rao',   status: 'active',    time: '1:20 PM',   duration: null },
-  { id: 'DEL-005', item: 'Stationery',    from: 'Admin Block',  to: 'Hostel B',          receiver: 'Student #42', status: 'pending',   time: '2:45 PM',   duration: null },
-  { id: 'DEL-006', item: 'Lab Equipment', from: 'Library',      to: 'Lab B – Physics',   receiver: 'Dr. Sharma',  status: 'pending',   time: '3:10 PM',   duration: null },
+  { id: 'DEL-001', item: 'Lab Report',    from: 'Admin Tower',  to: 'Research Lab',    receiver: 'Dr. Anand',   status: 'completed', time: '9:14 AM',   duration: '8 min' },
+  { id: 'DEL-002', item: 'Medical Docs',  from: 'Main Gate',    to: 'Medical – A',     receiver: 'Nurse Priya', status: 'completed', time: '10:32 AM',  duration: '11 min' },
+  { id: 'DEL-003', item: 'Books',         from: 'Library',      to: 'Hostel C',        receiver: 'Arjun M.',    status: 'completed', time: '11:05 AM',  duration: '14 min' },
+  { id: 'DEL-004', item: 'Lunch Parcel',  from: 'Cafeteria',    to: 'Engineering',     receiver: 'Prof. Rao',   status: 'active',    time: '1:20 PM',   duration: null },
+  { id: 'DEL-005', item: 'Stationery',    from: 'Admin Tower',  to: 'Hostel B',        receiver: 'Student #42', status: 'pending',   time: '2:45 PM',   duration: null },
+  { id: 'DEL-006', item: 'Lab Equipment', from: 'Library',      to: 'CS Block',        receiver: 'Dr. Sharma',  status: 'pending',   time: '3:10 PM',   duration: null },
 ];
 
 // ── Boot ──────────────────────────────────────
@@ -204,25 +204,42 @@ function startDelivery() {
 
 function findBuildingId(label) {
   const map = {
-    'Main Gate':        'main-gate',
-    'Admin Block':      'admin',
+    'Admin Tower':      'admin-tower',
+    'Lab C – Alpha':    'lab-c-a',
+    'Lab C – Beta':     'lab-c-b',
+    'Science Tower':    'science-tower',
+    'Classroom 101':    'classroom-101',
+    'Seminar Hall':     'seminar-hall',
+    'Engineering':      'engineering-b',
+    'Medical – A':      'medical-a',
+    'Medical – B':      'medical-b',
     'Library':          'library',
-    'Canteen':          'canteen',
+    'CS Block':         'cs-block',
+    'Research Lab':     'research-lab',
+    'Innovation Hub':   'innovation-hub',
+    'Business School':  'business-sch',
+    'Hostel C':         'hostel-c',
+    'Hostel D':         'hostel-d',
+    'Cafeteria':        'cafeteria',
+    'Main Gate':        'main-gate',
+    'Pharmacy':         'pharmacy',
+    'Clinic':           'clinic',
+    'Auditorium':       'auditorium',
+    'Workshop A':       'workshop-a',
+    'Workshop B':       'workshop-b',
+    'Sports Complex':   'sports-complex',
     'Hostel A':         'hostel-a',
     'Hostel B':         'hostel-b',
-    'Sports Complex':   'sports',
-    'Room 101 — Science Block': 'science',
-    'Room 205 — Engineering':   'engineering',
-    'Lab A — Chemistry':        'lab-a',
-    'Lab B — Physics':          'lab-b',
-    'Lab C — Computer':         'lab-a',
-    'Room 301 — Arts Block':    'admin',
-    'Room 410 — Admin':         'admin',
-    'Medical Centre':           'medical',
-    'Hostel A':                 'hostel-a',
-    'Hostel B':                 'hostel-b',
+    'Parking':          'parking-a',
+    'Canteen':          'canteen',
+    'Art Studio':       'art-studio',
+    'Design Lab':       'design-lab',
+    'Gymnasium':        'gymnasium',
+    'Staff – A':        'staff-a',
+    'Staff – B':        'staff-b',
+    'Conference Hall':  'conf-hall',
   };
-  return map[label] || 'admin';
+  return map[label] || 'admin-tower';
 }
 
 function recallRobot() {

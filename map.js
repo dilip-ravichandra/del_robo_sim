@@ -68,8 +68,8 @@ const SCALE_H = 400;
 
 // Robot state
 const robotState = {
-  x: 680, y: 170,
-  tx: 680, ty: 170,
+  x: 700, y: 197,
+  tx: 700, ty: 197,
   angle: 0,
   targetAngle: 0,
   speed: 2.5,

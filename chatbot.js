@@ -34,7 +34,7 @@ Ask me anything about dispatching deliveries, the robot's status, OTP unlock, or
       response: `To dispatch a delivery:<br><br>
 <strong>1.</strong> Open the <strong>Dashboard</strong> and find the Dispatch panel<br>
 <strong>2.</strong> Fill in the <strong>Item Name</strong> (e.g. "Lab Samples")<br>
-<strong>3.</strong> Choose a <strong>Pickup Location</strong> (default: Admin Block)<br>
+<strong>3.</strong> Choose a <strong>Pickup Location</strong> (default: Admin Tower)<br>
 <strong>4.</strong> Choose the <strong>Destination</strong> from the dropdown<br>
 <strong>5.</strong> Optionally add the <strong>Receiver's name &amp; email</strong> for OTP delivery<br>
 <strong>6.</strong> Hit <strong>Dispatch Robot</strong> — the robot navigates in real time!`,
@@ -45,14 +45,21 @@ Ask me anything about dispatching deliveries, the robot's status, OTP unlock, or
       patterns: [/(where|which)\s+(can|locations|destinations|places|buildings)/i,
                  /destination/i, /buildings/i, /campus\s+map/i, /deliver\s+to/i,
                  /available\s+location/i, /where\s+can\s+i\s+send/i],
-      response: `Available delivery destinations on campus:<br><br>
-🏛 <strong>Admin Block</strong> &nbsp;|&nbsp; 🏥 <strong>Medical Centre</strong><br>
-🔬 <strong>Science Block</strong> (Room 101) &nbsp;|&nbsp; 📚 <strong>Library</strong><br>
-⚗️ <strong>Lab A — Chemistry</strong> &nbsp;|&nbsp; ⚡ <strong>Lab B — Physics</strong><br>
-💻 <strong>Lab C — Computer</strong> &nbsp;|&nbsp; 🍽 <strong>Canteen</strong><br>
-⚙️ <strong>Engineering</strong> (Room 205) &nbsp;|&nbsp; 🏠 <strong>Hostel A &amp; B</strong><br>
-🏃 <strong>Sports Complex</strong> &nbsp;|&nbsp; 🚪 <strong>Main Gate</strong><br><br>
-The map is 760×400 campus units. The robot's <strong>home base</strong> is near the eastern side.`,
+      response: `Available delivery destinations on campus (34 buildings):<br><br>
+🏛 <strong>Admin Tower</strong> &nbsp;|&nbsp; 🔬 <strong>Science Tower</strong><br>
+⚗️ <strong>Lab C – Alpha / Beta</strong> &nbsp;|&nbsp; 📚 <strong>Library</strong><br>
+💻 <strong>CS Block</strong> &nbsp;|&nbsp; 🧪 <strong>Research Lab</strong><br>
+💡 <strong>Innovation Hub</strong> &nbsp;|&nbsp; 💼 <strong>Business School</strong><br>
+🎓 <strong>Seminar Hall</strong> &nbsp;|&nbsp; 📖 <strong>Classroom 101</strong><br>
+⚙️ <strong>Engineering</strong> &nbsp;|&nbsp; 🎭 <strong>Auditorium</strong><br>
+🏥 <strong>Medical – A &amp; B</strong> &nbsp;|&nbsp; 💊 <strong>Pharmacy</strong> &nbsp;|&nbsp; 🏥 <strong>Clinic</strong><br>
+🏠 <strong>Hostel A, B, C, D</strong> &nbsp;|&nbsp; 👤 <strong>Staff A &amp; B</strong><br>
+🍽 <strong>Cafeteria</strong> &nbsp;|&nbsp; 🍜 <strong>Canteen</strong><br>
+⚽ <strong>Sports Complex</strong> &nbsp;|&nbsp; 🏋 <strong>Gymnasium</strong><br>
+🎨 <strong>Art Studio</strong> &nbsp;|&nbsp; 📐 <strong>Design Lab</strong><br>
+🔧 <strong>Workshop A &amp; B</strong> &nbsp;|&nbsp; 📊 <strong>Conference Hall</strong><br>
+🚪 <strong>Main Gate</strong> &nbsp;|&nbsp; 🅿 <strong>Parking</strong><br><br>
+The campus has 20 road intersections and narrow 20px alleys between paired buildings — the A* path planner must route carefully!`,
     },
 
     // ── OTP / unlock ──────────────────────────────────────────────────
