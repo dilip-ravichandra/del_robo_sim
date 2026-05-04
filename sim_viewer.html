@@ -316,6 +316,18 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:var(--fo
     <div style="margin-top:8px;font-size:9px;color:var(--dim)" id="ai-routes"></div>
   </div>
 
+  <!-- ML Model -->
+  <div class="sb-sec">
+    <div class="sb-hdr" style="display:flex;align-items:center;gap:6px">
+      ML Nav Model
+      <span id="ml-badge" style="font-size:8px;padding:1px 5px;border-radius:3px;background:#1a1a1a;color:#666;font-weight:700;letter-spacing:.5px">LOADING</span>
+    </div>
+    <div class="kv"><span class="kv-k">Vehicles</span><span class="kv-v" id="ml-veh" style="color:#f97316">0</span></div>
+    <div class="kv"><span class="kv-k">Pedestrians</span><span class="kv-v" id="ml-ped" style="color:#a855f7">0</span></div>
+    <div class="kv"><span class="kv-k">Bikes</span><span class="kv-v" id="ml-bike" style="color:#fbbf24">0</span></div>
+    <div style="margin-top:6px" id="ml-det-list"></div>
+  </div>
+
   <!-- Legend -->
   <div class="legend">
     <div class="lg-item"><div class="lg-dot" style="background:#1db954"></div>Robot</div>
@@ -326,6 +338,7 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:var(--fo
     <div class="lg-item"><div class="lg-dot" style="background:#a855f7"></div>Person</div>
     <div class="lg-item"><div class="lg-dot" style="background:#fbbf24;border-radius:2px"></div>Bike</div>
     <div class="lg-item"><div class="lg-line" style="background:rgba(239,68,68,.6)"></div>LIDAR hit</div>
+    <div class="lg-item"><div class="lg-line" style="background:rgba(251,191,36,.7)"></div>ML detect</div>
   </div>
 </div>
 
@@ -717,6 +730,35 @@ function updateHUD(s) {
     ).join('');
   }
 
+  // ── ML panel ──────────────────────────────────────────────
+  const ml = s.ml || {};
+  const mlBadge = document.getElementById('ml-badge');
+  if(ml.active) {
+    mlBadge.textContent = 'ACTIVE';
+    mlBadge.style.background = 'rgba(251,191,36,.15)';
+    mlBadge.style.color = '#fbbf24';
+  } else {
+    mlBadge.textContent = 'INACTIVE';
+    mlBadge.style.background = '#1a1a1a';
+    mlBadge.style.color = '#555';
+  }
+  document.getElementById('ml-veh').textContent  = ml.vehicles  || 0;
+  document.getElementById('ml-ped').textContent  = ml.pedestrians || 0;
+  document.getElementById('ml-bike').textContent = ml.bikes     || 0;
+
+  const detList = document.getElementById('ml-det-list');
+  if(ml.detections && ml.detections.length) {
+    const COL = {vehicle:'#f97316', pedestrian:'#a855f7', bike:'#fbbf24', building:'#ef4444'};
+    detList.innerHTML = ml.detections.slice(0,6).map(d=>
+      `<div style="display:flex;justify-content:space-between;font-size:9px;padding:1px 0;color:${COL[d.label]||'#aaa'}">
+        <span>${d.label.toUpperCase()} ${Math.round(d.angle_deg)}&deg;</span>
+        <span style="color:var(--dim)">${Math.round(d.dist)}u &nbsp;${Math.round(d.confidence*100)}%</span>
+      </div>`
+    ).join('');
+  } else {
+    detList.innerHTML = '<div style="font-size:9px;color:var(--dim)">No objects in range</div>';
+  }
+
   // bottom stats
   document.getElementById('st-speed').textContent = r.speed.toFixed(1);
   document.getElementById('st-batt').textContent  = Math.round(r.battery);
@@ -1021,6 +1063,47 @@ function drawLidar(rx, ry, points) {
   ctx.restore();
 }
 
+// ── ML detection overlay ──────────────────────────────────
+// Draws gold confidence rings + labels at positions reported by the ML model.
+// Each detection: {ray, angle_deg, label, confidence, dist}
+function drawMLDetections(rx, ry, detections) {
+  if(!detections || !detections.length) return;
+  ctx.save();
+  const ML_COL = { vehicle:'rgba(251,146,60,1)', pedestrian:'rgba(168,85,247,1)', bike:'rgba(251,191,36,1)', building:'rgba(239,68,68,0.6)' };
+  const pulse = (Math.sin(animT * 0.12) + 1) / 2;
+
+  detections.forEach(d => {
+    const ang = d.angle_deg * Math.PI / 180;
+    const wx  = rx + Math.cos(ang) * d.dist;
+    const wy  = ry + Math.sin(ang) * d.dist;
+    const px  = X(wx), py = Y(wy);
+    const col = ML_COL[d.label] || 'rgba(251,191,36,1)';
+    const r   = S(7 + pulse * 3);
+
+    // Outer pulsing ring (gold = ML-confirmed)
+    ctx.strokeStyle = col.replace(',1)', `,${0.35 + pulse * 0.25})`);
+    ctx.lineWidth   = S(1.8);
+    ctx.setLineDash([S(2), S(2)]);
+    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Confidence bar arc (solid portion = confidence %)
+    ctx.strokeStyle = col;
+    ctx.lineWidth   = S(2.2);
+    ctx.beginPath();
+    ctx.arc(px, py, r, -Math.PI / 2, -Math.PI / 2 + d.confidence * Math.PI * 2);
+    ctx.stroke();
+
+    // Label
+    const lbl = { vehicle:'[VEH]', pedestrian:'[PED]', bike:'[BIKE]', building:'[BLD]' }[d.label] || d.label.toUpperCase();
+    ctx.fillStyle = col;
+    ctx.font = `bold ${S(7)}px JetBrains Mono, monospace`;
+    ctx.textAlign = 'left';
+    ctx.fillText(`ML ${lbl} ${Math.round(d.confidence * 100)}%`, px + S(9), py - S(2));
+  });
+  ctx.restore();
+}
+
 // ── Replanning pulse ──────────────────────────────────────
 function drawReplanPulse(rx, ry) {
   if(replanAnim <= 0) return;
@@ -1266,8 +1349,9 @@ function frame() {
     drawPath(s.path||[]);
   }
 
-  // LIDAR
+  // LIDAR + ML detection overlay
   drawLidar(r.x||HOME_X, r.y||HOME_Y, (s.lidar||{}).points||[]);
+  if((s.ml||{}).active) drawMLDetections(r.x||HOME_X, r.y||HOME_Y, (s.ml||{}).detections||[]);
 
   // Replan pulse
   drawReplanPulse(r.x||HOME_X, r.y||HOME_Y);

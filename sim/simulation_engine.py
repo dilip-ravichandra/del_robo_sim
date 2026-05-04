@@ -17,6 +17,13 @@ from constants import (
 from ai_module    import AIModule
 from sensor_module import LidarSensor, CameraFeed
 
+# ML predictor — optional, degrades gracefully if model not trained yet
+try:
+    from ml.predictor import get_predictor as _get_ml_predictor
+    _ML_PREDICTOR = _get_ml_predictor()
+except Exception:
+    _ML_PREDICTOR = None
+
 
 # Road centres that match the frontend map (road y + h/2, road x + w/2)
 _H_ROADS = [97.0, 197.0, 277.0, 357.0]   # horizontal road centre Y
@@ -206,6 +213,10 @@ class SimulationEngine:
         self.lidar_scan: List[Dict] = []
         self.camera_data: Dict = {}
 
+        # ML predictor (shared singleton loaded at module level)
+        self._ml = _ML_PREDICTOR
+        self._ml_detections: List[Dict] = []
+
         # WebSocket clients
         self._clients = set()
         self._delivery_log: List[Dict] = []
@@ -348,6 +359,12 @@ class SimulationEngine:
             self.rx, self.ry, self.angle, obs_dicts
         )
 
+        # ML object detection — runs on every tick when model is loaded
+        if self._ml and self._ml.available and self.lidar_scan:
+            self._ml_detections = self._ml.detect_objects(self.lidar_scan)
+        else:
+            self._ml_detections = []
+
         # Adaptive learning: decay costs every tick
         self.ai.decay_costs()
 
@@ -381,9 +398,23 @@ class SimulationEngine:
         else:
             norm_x = dx / dist
             norm_y = dy / dist
+
+            # Blend A* direction (70%) with ML path suggestion (30%)
+            if self._ml and self._ml.available and self.lidar_scan and self.path:
+                end = self.path[-1]
+                gdx, gdy = end[0] - self.rx, end[1] - self.ry
+                gd = math.sqrt(gdx ** 2 + gdy ** 2) or 1.0
+                ml_dx, ml_dy = self._ml.optimize_direction(
+                    self.lidar_scan, gdx / gd, gdy / gd
+                )
+                bx = 0.7 * norm_x + 0.3 * ml_dx
+                by = 0.7 * norm_y + 0.3 * ml_dy
+                bm = math.sqrt(bx ** 2 + by ** 2) or 1.0
+                norm_x, norm_y = bx / bm, by / bm
+
             self.rx += norm_x * ROBOT_SPEED
             self.ry += norm_y * ROBOT_SPEED
-            self.angle = math.atan2(dy, dx)
+            self.angle = math.atan2(norm_y, norm_x)
 
         # Trail
         self.trail.append({"x": round(self.rx, 1), "y": round(self.ry, 1)})
@@ -574,6 +605,14 @@ class SimulationEngine:
                 "routes":            self.ai.route_log[:4],
             },
             "analysis": self.route_analysis,
+            "ml": {
+                "active":       bool(self._ml and self._ml.available),
+                "detections":   self._ml_detections[:12],
+                "object_count": len(self._ml_detections),
+                "vehicles":     sum(1 for d in self._ml_detections if d["label"] == "vehicle"),
+                "pedestrians":  sum(1 for d in self._ml_detections if d["label"] == "pedestrian"),
+                "bikes":        sum(1 for d in self._ml_detections if d["label"] == "bike"),
+            },
             "deliveries": self._delivery_log[:10],
             "lock": {
                 "active":      self.lock_active,

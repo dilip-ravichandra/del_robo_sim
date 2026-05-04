@@ -1,0 +1,3 @@
+# DeliveryBot ML — extra dependencies
+# Install with:  pip install -r sim/ml/requirements_ml.txt
+torch>=2.0.0
