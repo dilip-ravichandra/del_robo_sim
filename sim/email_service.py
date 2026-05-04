@@ -27,7 +27,7 @@ class EmailService:
             msg["To"]      = to
             msg.attach(MIMEText(html, "html"))
             ctx = ssl.create_default_context()
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx) as s:
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx, timeout=10) as s:
                 s.login(self.sender, self.password)
                 s.sendmail(self.sender, to, msg.as_string())
             print(f"[Email] Sent '{subject}' to {to}")

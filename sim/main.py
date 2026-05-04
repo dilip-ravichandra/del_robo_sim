@@ -3,6 +3,12 @@
 # Run: uvicorn main:app --reload --port 8000
 # ═══════════════════════════════════════════════
 
+import sys
+import os
+
+# Ensure this directory is in the Python path so modules can be imported
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 import asyncio
 import json
 import random
@@ -66,8 +72,8 @@ async def _handle_pickup_arrived(
 
     email_sent = False
     if sender_email and "@" in sender_email:
-        email_sent = email_service.send_pickup_lock(
-            sender_email, sender_name, item, pickup, otp
+        email_sent = await asyncio.to_thread(
+            email_service.send_pickup_lock, sender_email, sender_name, item, pickup, otp
         )
 
     print(f"[Pickup Lock] {delivery_id} at pickup. OTP={otp} email_sent={email_sent}")
@@ -113,8 +119,8 @@ async def _handle_delivery_arrived(
     # Email receiver
     email_sent = False
     if receiver_email and "@" in receiver_email:
-        email_sent = email_service.send_delivery_lock(
-            receiver_email, receiver_name, item, dest, otp
+        email_sent = await asyncio.to_thread(
+            email_service.send_delivery_lock, receiver_email, receiver_name, item, dest, otp
         )
 
     print(f"[Lock] Delivery {delivery_id} locked. OTP={otp} email_sent={email_sent}")
@@ -322,6 +328,13 @@ async def recall_robot(user: dict = Depends(require_auth)):
 async def emergency_stop(user: dict = Depends(require_auth)):
     sim.emergency_stop()
     return {"ok": True}
+
+
+@app.post("/robot/reset", tags=["robot"])
+def reset_robot():
+    """Reset the robot to a clean idle state for a fresh simulation run."""
+    sim.reset()
+    return {"ok": True, "robot": sim.get_state()["robot"]}
 
 
 @app.get("/robot/status", tags=["robot"])

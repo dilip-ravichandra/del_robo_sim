@@ -18,6 +18,11 @@ from ai_module    import AIModule
 from sensor_module import LidarSensor, CameraFeed
 
 
+# Road centres that match the frontend map (road y + h/2, road x + w/2)
+_H_ROADS = [97.0, 197.0, 277.0, 357.0]   # horizontal road centre Y
+_V_ROADS = [127.0, 247.0, 377.0, 507.0, 627.0]  # vertical road centre X
+
+
 # ── Dynamic obstacle ──────────────────────────────────────────────────
 class DynObs:
     def __init__(self, obs_type: str):
@@ -25,18 +30,30 @@ class DynObs:
         self.radius = 10 if obs_type == "vehicle" else 6
 
         if obs_type == "vehicle":
-            self.speed = random.uniform(2.0, 4.0)
-            road_y = random.choice([151.0, 281.0])
-            self.x  = random.uniform(30, MAP_W - 30)
-            self.y  = road_y
-            self.vx = self.speed * random.choice([-1, 1])
-            self.vy = 0.0
-            self.change_timer = 0
+            self.speed = random.uniform(0.4, 0.8)   # slow motion
+
+            # Pick a road axis and lane
+            if random.random() < 0.6:
+                self.road_axis   = "h"
+                self.road_centre = random.choice(_H_ROADS)
+                self.y = self.road_centre
+                self.x = random.uniform(20, MAP_W - 20)
+                self.vx = self.speed * random.choice([-1, 1])
+                self.vy = 0.0
+            else:
+                self.road_axis   = "v"
+                self.road_centre = random.choice(_V_ROADS)
+                self.x = self.road_centre
+                self.y = random.uniform(20, MAP_H - 20)
+                self.vx = 0.0
+                self.vy = self.speed * random.choice([-1, 1])
+
+            self.turn_timer      = 0
+            self.next_turn_after = random.randint(80, 200)
         else:
-            self.speed = random.uniform(0.6, 1.5)
-            # Spawn near building edges (not inside)
+            self.speed = random.uniform(0.2, 0.5)   # slow motion pedestrians
             self.x = random.uniform(30, MAP_W - 30)
-            self.y = random.uniform(30, MAP_H - 30)
+            self.y = float(random.choice(_H_ROADS)) + random.uniform(-6, 6)
             angle  = random.uniform(0, 2 * math.pi)
             self.vx = math.cos(angle) * self.speed
             self.vy = math.sin(angle) * self.speed
@@ -44,26 +61,75 @@ class DynObs:
 
     def update(self) -> None:
         if self.type == "vehicle":
-            self.x += self.vx
-            if self.x <= 0 or self.x >= MAP_W:
-                self.vx = -self.vx
+            self._update_vehicle()
         else:
-            self.change_timer -= 1
-            if self.change_timer <= 0:
-                angle = random.uniform(0, 2 * math.pi)
-                self.vx = math.cos(angle) * self.speed
-                self.vy = math.sin(angle) * self.speed
-                self.change_timer = random.randint(40, 120)
-            nx = self.x + self.vx
-            ny = self.y + self.vy
-            if 15 <= nx <= MAP_W - 15:
-                self.x = nx
-            else:
-                self.vx = -self.vx
-            if 15 <= ny <= MAP_H - 15:
-                self.y = ny
-            else:
-                self.vy = -self.vy
+            self._update_pedestrian()
+
+    def _update_vehicle(self) -> None:
+        self.turn_timer += 1
+
+        if self.road_axis == "h":
+            self.x += self.vx
+            self.y  = self.road_centre          # stay locked to road
+
+            if self.x <= 10:
+                self.x = 10.0; self.vx = abs(self.vx)
+            elif self.x >= MAP_W - 10:
+                self.x = MAP_W - 10.0; self.vx = -abs(self.vx)
+
+            # Optionally turn onto a vertical road at intersections
+            if self.turn_timer >= self.next_turn_after:
+                for vx in _V_ROADS:
+                    if abs(self.x - vx) < 6:
+                        if random.random() < 0.25:
+                            self.road_axis   = "v"
+                            self.road_centre = vx
+                            self.x           = vx
+                            self.vy          = self.speed * (1 if self.vx > 0 else -1)
+                            self.vx          = 0.0
+                        self.turn_timer      = 0
+                        self.next_turn_after = random.randint(80, 200)
+                        break
+        else:
+            self.y += self.vy
+            self.x  = self.road_centre          # stay locked to road
+
+            if self.y <= 10:
+                self.y = 10.0; self.vy = abs(self.vy)
+            elif self.y >= MAP_H - 10:
+                self.y = MAP_H - 10.0; self.vy = -abs(self.vy)
+
+            # Optionally turn onto a horizontal road at intersections
+            if self.turn_timer >= self.next_turn_after:
+                for hy in _H_ROADS:
+                    if abs(self.y - hy) < 6:
+                        if random.random() < 0.25:
+                            self.road_axis   = "h"
+                            self.road_centre = hy
+                            self.y           = hy
+                            self.vx          = self.speed * (1 if self.vy > 0 else -1)
+                            self.vy          = 0.0
+                        self.turn_timer      = 0
+                        self.next_turn_after = random.randint(80, 200)
+                        break
+
+    def _update_pedestrian(self) -> None:
+        self.change_timer -= 1
+        if self.change_timer <= 0:
+            angle = random.uniform(0, 2 * math.pi)
+            self.vx = math.cos(angle) * self.speed
+            self.vy = math.sin(angle) * self.speed
+            self.change_timer = random.randint(40, 120)
+        nx = self.x + self.vx
+        ny = self.y + self.vy
+        if 15 <= nx <= MAP_W - 15:
+            self.x = nx
+        else:
+            self.vx = -self.vx
+        if 15 <= ny <= MAP_H - 15:
+            self.y = ny
+        else:
+            self.vy = -self.vy
 
     def to_dict(self) -> Dict:
         return {
@@ -109,6 +175,7 @@ class SimulationEngine:
         self.dest_coord:   Optional[Tuple[float, float]] = None
         self.phase      = "none"   # "to_pickup" | "to_dest" | "returning"
         self.eta        = 0.0
+        self.route_analysis: Dict = {}
 
         # Pickup lock state (sender loads package at pickup point)
         self.pickup_lock_active = False
@@ -214,6 +281,39 @@ class SimulationEngine:
         self.path   = []
         self.speed  = 0.0
         self.phase  = "none"
+        self.route_analysis = {}
+
+    def reset(self) -> None:
+        """Return the robot to a clean idle state and clear the active task."""
+        if self._delivery_log and self._delivery_log[0].get("status") == "active":
+            self._delivery_log[0]["status"] = "pending"
+
+        self.rx        = HOME_X
+        self.ry        = HOME_Y
+        self.angle     = 0.0
+        self.status    = self.IDLE
+        self.speed     = 0.0
+        self.trail     = []
+        self.task_item = ""
+        self.task_dest = ""
+        self.task_pickup = ""
+        self.task_receiver = ""
+        self.task_receiver_email = ""
+        self.sender_email = ""
+        self.path      = []
+        self.path_idx  = 0
+        self.pickup_coord = None
+        self.dest_coord   = None
+        self.phase     = "none"
+        self.eta       = 0.0
+        self.pickup_lock_active = False
+        self.pickup_lock_otp    = ""
+        self.lock_active  = False
+        self.lock_otp     = ""
+        self.current_del_id = ""
+        self.avoid_pause  = 0
+        self.steer_offset = 0.0
+        self.route_analysis = {}
 
     # ── Path planning helpers ─────────────────────────────────────────
     def _plan_phase(self) -> None:
@@ -224,13 +324,15 @@ class SimulationEngine:
         else:
             target = (HOME_X, HOME_Y)
 
-        self.path     = self.ai.find_path((self.rx, self.ry), target)
+        self.route_analysis = self.ai.analyze_route((self.rx, self.ry), target)
+        self.path     = self.route_analysis.get("dstar_path") or self.ai.find_path((self.rx, self.ry), target)
         self.path_idx = 0
         self.eta      = self.ai.estimate_eta(self.path, ROBOT_SPEED)
 
     def _plan_return(self) -> None:
         self.phase    = "returning"
-        self.path     = self.ai.find_path((self.rx, self.ry), (HOME_X, HOME_Y))
+        self.route_analysis = self.ai.analyze_route((self.rx, self.ry), (HOME_X, HOME_Y))
+        self.path     = self.route_analysis.get("dstar_path") or self.ai.find_path((self.rx, self.ry), (HOME_X, HOME_Y))
         self.path_idx = 0
 
     # ── Main simulation tick ──────────────────────────────────────────
@@ -422,7 +524,8 @@ class SimulationEngine:
         import json as _json
         msg  = _json.dumps(payload)
         dead = set()
-        for ws in self._clients:
+        # Create a copy to avoid RuntimeError when set changes during iteration
+        for ws in list(self._clients):
             try:
                 await ws.send_text(msg)
             except Exception:
@@ -470,6 +573,7 @@ class SimulationEngine:
                 "total_plans":       self.ai.total_plans,
                 "routes":            self.ai.route_log[:4],
             },
+            "analysis": self.route_analysis,
             "deliveries": self._delivery_log[:10],
             "lock": {
                 "active":      self.lock_active,
@@ -519,7 +623,8 @@ class SimulationEngine:
             return
         payload = json.dumps({"type": "state", **self.get_state()})
         dead    = set()
-        for ws in self._clients:
+        # Create a copy to avoid RuntimeError when set changes during iteration
+        for ws in list(self._clients):
             try:
                 await ws.send_text(payload)
             except Exception:

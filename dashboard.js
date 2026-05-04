@@ -366,6 +366,8 @@ function renderDeliveriesList(deliveries) {
   const list = document.getElementById('deliveries-list');
   if (!list) return;
 
+  AppState.deliveries = Array.isArray(deliveries) ? deliveries.slice() : [];
+
   const filtered = currentFilter === 'all'
     ? deliveries
     : deliveries.filter(d => d.status === currentFilter);
@@ -396,13 +398,33 @@ function renderDeliveriesList(deliveries) {
 }
 
 function updateDeliveryBadge() {
-  const pending = SAMPLE_DELIVERIES.filter(d => d.status === 'pending').length;
+  const source = Array.isArray(AppState.deliveries) && AppState.deliveries.length
+    ? AppState.deliveries
+    : SAMPLE_DELIVERIES;
+  const pending = source.filter(d => d.status === 'pending').length;
   const badge   = document.getElementById('pending-badge');
   if (badge) {
     badge.textContent = pending;
     badge.style.display = pending > 0 ? 'inline-flex' : 'none';
   }
 }
+
+function resetRobot() {
+  setRobotStatus('idle');
+  AppState.activeDelivery = null;
+  document.getElementById('btn-dispatch').disabled = false;
+  document.getElementById('btn-recall').disabled = true;
+  document.getElementById('btn-estop').disabled = true;
+  document.getElementById('task-text').textContent = 'Awaiting dispatch';
+  const badge = document.getElementById('map-status-badge');
+  if (badge) badge.style.display = 'none';
+  if (window.MapEngine && window.MapEngine.resetMapView) {
+    window.MapEngine.resetMapView();
+  }
+  toast('↺ Robot Reset', 'Robot returned to base and cleared for a new run.', 'success');
+}
+
+window.resetRobot = resetRobot;
 
 // ── Toast notifications ───────────────────────
 function toast(title, msg, type = 'info') {

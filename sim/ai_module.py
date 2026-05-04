@@ -5,7 +5,7 @@
 
 import heapq
 import math
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict
 import numpy as np
 
 from constants import (
@@ -24,17 +24,19 @@ class AIModule:
 
     # ── Grid construction ─────────────────────────────────────────────
     def _build_grid(self) -> np.ndarray:
-        """1 = impassable (inside building), 0 = free."""
-        grid = np.zeros((GRID_H, GRID_W), dtype=np.int8)
-        margin = 1  # 1 cell (10px) inset so robot navigates along walls
+        """1 = impassable, 0 = drivable road cell.
 
-        for b in BUILDINGS:
-            gx1 = max(0, (b['x'] + margin * CELL) // CELL)
-            gy1 = max(0, (b['y'] + margin * CELL) // CELL)
-            gx2 = min(GRID_W - 1, (b['x'] + b['w'] - margin * CELL) // CELL)
-            gy2 = min(GRID_H - 1, (b['y'] + b['h'] - margin * CELL) // CELL)
-            if gx2 > gx1 and gy2 > gy1:
-                grid[gy1:gy2, gx1:gx2] = 1
+        The robot is constrained to the road network only. Cells are marked
+        free only when they intersect a road rectangle.
+        """
+        grid = np.ones((GRID_H, GRID_W), dtype=np.int8)
+
+        for road in ROADS:
+            gx1 = max(0, road['x'] // CELL)
+            gy1 = max(0, road['y'] // CELL)
+            gx2 = min(GRID_W, (road['x'] + road['w'] + CELL - 1) // CELL)
+            gy2 = min(GRID_H, (road['y'] + road['h'] + CELL - 1) // CELL)
+            grid[gy1:gy2, gx1:gx2] = 0
 
         return grid
 
@@ -64,6 +66,7 @@ class AIModule:
         self,
         start: Tuple[int, int],
         end:   Tuple[int, int],
+        adaptive: bool = True,
     ) -> Optional[List[Tuple[int, int]]]:
         def heuristic(a: Tuple[int, int], b: Tuple[int, int]) -> float:
             return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
@@ -84,8 +87,7 @@ class AIModule:
                 path.append(start)
                 return list(reversed(path))
 
-            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1),
-                           (-1, -1), (1, -1), (-1, 1), (1, 1)]:
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                 nx, ny = cur[0] + dx, cur[1] + dy
                 nb = (nx, ny)
                 if not (0 <= nx < GRID_W and 0 <= ny < GRID_H):
@@ -94,7 +96,7 @@ class AIModule:
                     continue
 
                 move_cost     = math.sqrt(dx * dx + dy * dy)
-                adaptive_cost = float(self.cost_map[ny, nx])
+                adaptive_cost = float(self.cost_map[ny, nx]) if adaptive else 0.0
                 tent_g        = g[cur] + move_cost + adaptive_cost
 
                 if nb not in g or tent_g < g[nb]:
@@ -106,12 +108,32 @@ class AIModule:
         return None  # No path
 
     # ── Path planning public API ───────────────────────────────────────
-    def find_path(
+    def _compress_path(
+        self,
+        path: List[Tuple[float, float]],
+    ) -> List[Tuple[float, float]]:
+        """Keep only turning points so the route remains road-aligned."""
+        if len(path) <= 2:
+            return path
+        out = [path[0]]
+        prev_dx = path[1][0] - path[0][0]
+        prev_dy = path[1][1] - path[0][1]
+        for i in range(1, len(path) - 1):
+            dx = path[i + 1][0] - path[i][0]
+            dy = path[i + 1][1] - path[i][1]
+            if (dx, dy) != (prev_dx, prev_dy):
+                out.append(path[i])
+            prev_dx, prev_dy = dx, dy
+        out.append(path[-1])
+        return out
+
+    def _plan_route(
         self,
         start: Tuple[float, float],
         end:   Tuple[float, float],
+        adaptive: bool = True,
     ) -> List[Tuple[float, float]]:
-        """Plan a smooth world-coordinate path from start to end."""
+        """Plan a road-only world-coordinate path from start to end."""
         self.total_plans += 1
         sg = self.world_to_grid(*start)
         eg = self.world_to_grid(*end)
@@ -121,49 +143,80 @@ class AIModule:
         if self.grid[eg[1], eg[0]] == 1:
             eg = self._nearest_free(eg)
 
-        grid_path = self._astar(sg, eg)
+        grid_path = self._astar(sg, eg, adaptive=adaptive)
         if not grid_path:
-            # Fallback: L-shaped path through nearest road
+            # Fallback: simple orthogonal road-aligned route
             return self._fallback_route(start, end)
 
         world_path = [self.grid_to_world(gx, gy) for gx, gy in grid_path]
-        smoothed   = self._smooth_path(world_path)
+        compressed = self._compress_path(world_path)
 
-        # Log route for learning display
+        return compressed
+
+    def analyze_route(
+        self,
+        start: Tuple[float, float],
+        end:   Tuple[float, float],
+    ) -> Dict:
+        """Return both A* and D*-style routes with readable metrics."""
+        astar_path = self._plan_route(start, end, adaptive=False)
+        dstar_path  = self._plan_route(start, end, adaptive=True)
+
+        def _len(path):
+            return round(sum(
+                math.sqrt(
+                    (path[i + 1][0] - path[i][0]) ** 2 +
+                    (path[i + 1][1] - path[i][1]) ** 2
+                ) for i in range(len(path) - 1)
+            ), 1) if len(path) > 1 else 0.0
+
+        astar_len = _len(astar_path)
+        dstar_len = _len(dstar_path)
         label = f"{int(start[0])},{int(start[1])} → {int(end[0])},{int(end[1])}"
         score = max(60, 100 - int(self.cost_map.mean() * 10))
-        self.route_log = ([{'label': label, 'score': score}] + self.route_log)[:8]
+        self.route_log = ([
+            {'label': f"A* shortest · {len(astar_path)} nodes", 'score': 100},
+            {'label': f"D* adaptive · {len(dstar_path)} nodes", 'score': score},
+        ] + self.route_log)[:8]
 
-        return smoothed
+        return {
+            'label': label,
+            'astar_path': astar_path,
+            'dstar_path': dstar_path,
+            'astar_length': astar_len,
+            'dstar_length': dstar_len,
+            'astar_hops': max(0, len(astar_path) - 1),
+            'dstar_hops': max(0, len(dstar_path) - 1),
+            'shortest_gain': round(max(0.0, dstar_len - astar_len), 1),
+            'replans': self.replans,
+            'score': score,
+        }
+
+    def find_path(
+        self,
+        start: Tuple[float, float],
+        end:   Tuple[float, float],
+    ) -> List[Tuple[float, float]]:
+        """Compatibility wrapper returning the adaptive road-only route."""
+        return self._plan_route(start, end, adaptive=True)
 
     def _fallback_route(
         self,
         start: Tuple[float, float],
         end:   Tuple[float, float],
     ) -> List[Tuple[float, float]]:
-        """L-shaped routing via nearest road when A* fails."""
-        road_y = 151.0 if abs(start[1] - 151) < abs(start[1] - 281) else 281.0
-        return [start, (start[0], road_y), (end[0], road_y), end]
+        """Orthogonal fallback via the nearest road intersections."""
+        road_y = min([r['y'] + r['h'] / 2 for r in ROADS if r['w'] > r['h']], key=lambda y: abs(start[1] - y))
+        road_x = min([r['x'] + r['w'] / 2 for r in ROADS if r['h'] > r['w']], key=lambda x: abs(start[0] - x))
+        return [start, (start[0], road_y), (road_x, road_y), (road_x, end[1]), end]
 
     # ── Path smoothing ─────────────────────────────────────────────────
     def _smooth_path(
         self,
         path: List[Tuple[float, float]],
     ) -> List[Tuple[float, float]]:
-        """Remove intermediate waypoints that have line-of-sight to a farther one."""
-        if len(path) <= 2:
-            return path
-        result = [path[0]]
-        i = 0
-        while i < len(path) - 1:
-            j = len(path) - 1
-            while j > i + 1:
-                if self._los(path[i], path[j]):
-                    break
-                j -= 1
-            result.append(path[j])
-            i = j
-        return result
+        """Retained for backwards compatibility."""
+        return path
 
     def _los(
         self,

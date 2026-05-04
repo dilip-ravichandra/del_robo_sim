@@ -85,6 +85,13 @@ const robotState = {
   onArrive: null,
 };
 
+const routeState = {
+  astar: [],
+  dstar: [],
+  label: '',
+  metrics: null,
+};
+
 // Pickup and destination markers
 let pickupMarker = null;
 let destMarker   = null;
@@ -125,6 +132,128 @@ function sx(x) { return (x / SCALE_W) * mapW; }
 function sy(y) { return (y / SCALE_H) * mapH; }
 function sw(w) { return (w / SCALE_W) * mapW; }
 function sh(h) { return (h / SCALE_H) * mapH; }
+
+// ── Road planner ──────────────────────────────
+const ROAD_CELL = 10;
+
+function buildRoadGrid() {
+  const cols = Math.ceil(SCALE_W / ROAD_CELL);
+  const rows = Math.ceil(SCALE_H / ROAD_CELL);
+  const grid = Array.from({ length: rows }, () => Array(cols).fill(1));
+
+  CAMPUS_MAP.roads.forEach(r => {
+    const x1 = Math.max(0, Math.floor(r.x / ROAD_CELL));
+    const y1 = Math.max(0, Math.floor(r.y / ROAD_CELL));
+    const x2 = Math.min(cols, Math.ceil((r.x + r.w) / ROAD_CELL));
+    const y2 = Math.min(rows, Math.ceil((r.y + r.h) / ROAD_CELL));
+    for (let y = y1; y < y2; y++) {
+      for (let x = x1; x < x2; x++) grid[y][x] = 0;
+    }
+  });
+
+  return grid;
+}
+
+function worldToGrid(pt) {
+  return { x: Math.max(0, Math.min(Math.floor(pt.x / ROAD_CELL), Math.ceil(SCALE_W / ROAD_CELL) - 1)),
+           y: Math.max(0, Math.min(Math.floor(pt.y / ROAD_CELL), Math.ceil(SCALE_H / ROAD_CELL) - 1)) };
+}
+
+function gridToWorld(node) {
+  return { x: node.x * ROAD_CELL + ROAD_CELL / 2, y: node.y * ROAD_CELL + ROAD_CELL / 2 };
+}
+
+function nearestFreeCell(grid, start) {
+  if (grid[start.y]?.[start.x] === 0) return start;
+  for (let r = 1; r < 25; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        const x = start.x + dx, y = start.y + dy;
+        if (grid[y]?.[x] === 0) return { x, y };
+      }
+    }
+  }
+  return start;
+}
+
+function heuristic(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function astar(grid, start, goal, adaptive = true) {
+  const open = [{ node: start, f: 0 }];
+  const came = new Map();
+  const g = new Map([[`${start.x},${start.y}`, 0]]);
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+
+  while (open.length) {
+    open.sort((a, b) => a.f - b.f);
+    const cur = open.shift().node;
+    if (cur.x === goal.x && cur.y === goal.y) {
+      const path = [cur];
+      let key = `${cur.x},${cur.y}`;
+      while (came.has(key)) {
+        const prev = came.get(key);
+        path.push(prev);
+        key = `${prev.x},${prev.y}`;
+      }
+      return path.reverse();
+    }
+
+    for (const [dx, dy] of dirs) {
+      const nx = cur.x + dx, ny = cur.y + dy;
+      if (grid[ny]?.[nx] !== 0) continue;
+      const key = `${nx},${ny}`;
+      const cost = 1 + (adaptive ? (routeState.costMap?.[ny]?.[nx] || 0) : 0);
+      const tent = g.get(`${cur.x},${cur.y}`) + cost;
+      if (!g.has(key) || tent < g.get(key)) {
+        came.set(key, cur);
+        g.set(key, tent);
+        open.push({ node: { x: nx, y: ny }, f: tent + heuristic({ x: nx, y: ny }, goal) });
+      }
+    }
+  }
+  return [];
+}
+
+function compressPath(path) {
+  if (path.length <= 2) return path;
+  const out = [path[0]];
+  let prevDx = path[1].x - path[0].x;
+  let prevDy = path[1].y - path[0].y;
+  for (let i = 1; i < path.length - 1; i++) {
+    const dx = path[i + 1].x - path[i].x;
+    const dy = path[i + 1].y - path[i].y;
+    if (dx !== prevDx || dy !== prevDy) out.push(path[i]);
+    prevDx = dx; prevDy = dy;
+  }
+  out.push(path[path.length - 1]);
+  return out;
+}
+
+function routeLength(path) {
+  let len = 0;
+  for (let i = 0; i < path.length - 1; i++) len += Math.hypot(path[i + 1].x - path[i].x, path[i + 1].y - path[i].y);
+  return Math.round(len * 10) / 10;
+}
+
+function planRoadRoute(fromCoord, toCoord) {
+  const grid = buildRoadGrid();
+  const start = nearestFreeCell(grid, worldToGrid(fromCoord));
+  const goal  = nearestFreeCell(grid, worldToGrid(toCoord));
+  const astarGrid = astar(grid, start, goal, false);
+  const dstarGrid = astar(grid, start, goal, true);
+  const astarPath = compressPath(astarGrid.map(gridToWorld));
+  const dstarPath  = compressPath(dstarGrid.map(gridToWorld));
+  const metrics = {
+    astarLength: routeLength(astarPath),
+    dstarLength: routeLength(dstarPath),
+    astarNodes: astarPath.length,
+    dstarNodes: dstarPath.length,
+    shortestGain: Math.max(0, Math.round((routeLength(dstarPath) - routeLength(astarPath)) * 10) / 10),
+  };
+  return { astarPath, dstarPath, metrics };
+}
 
 // ── Draw loop ─────────────────────────────────
 let frame = 0;
@@ -220,10 +349,9 @@ function drawMapFrame() {
   // Home base
   drawHomeBase(c);
 
-  // Route line
-  if (robotState.currentRoute.length > 0) {
-    drawRouteLine(c);
-  }
+  // Route analysis overlays
+  if (routeState.astar.length > 0) drawRouteLine(c, routeState.astar, 'rgba(14,165,233,0.14)', '#0ea5e9', true, 'A*');
+  if (routeState.dstar.length > 0) drawRouteLine(c, routeState.dstar, 'rgba(29,185,84,0.16)', '#1db954', false, 'D*');
 
   // Pickup / Dest markers
   if (pickupMarker)  drawMarker(c, sx(pickupMarker.cx), sy(pickupMarker.cy), '#f59e0b', '📦', 'PICKUP');
@@ -250,6 +378,93 @@ function drawMapFrame() {
     c.strokeStyle = `rgba(29,185,84,${robotState.pulseAlpha * 0.5})`;
     c.lineWidth = 1.5;
     c.stroke();
+  }
+
+  renderRouteAnalysisPanel();
+}
+
+function renderRouteAnalysisPanel() {
+  const metrics = routeState.metrics;
+  const astarLengthEl = document.getElementById('astar-length');
+  const dstarLengthEl = document.getElementById('dstar-length');
+  const astarHopsEl = document.getElementById('astar-hops');
+  const dstarHopsEl = document.getElementById('dstar-hops');
+  const deltaEl = document.getElementById('route-delta');
+  const replansEl = document.getElementById('route-replans');
+  const badgeEl = document.getElementById('route-badge');
+
+  if (metrics) {
+    if (astarLengthEl) astarLengthEl.textContent = `${metrics.astarLength}`;
+    if (dstarLengthEl) dstarLengthEl.textContent = `${metrics.dstarLength}`;
+    if (astarHopsEl) astarHopsEl.textContent = `${metrics.astarNodes}`;
+    if (dstarHopsEl) dstarHopsEl.textContent = `${metrics.dstarNodes}`;
+    if (deltaEl) deltaEl.textContent = `Shortest gain: ${metrics.shortestGain}`;
+    if (replansEl) replansEl.textContent = `Replans: ${metrics.replans ?? 0}`;
+    if (badgeEl) badgeEl.textContent = routeState.label ? `LIVE · ${routeState.label}` : 'LIVE';
+  }
+
+  const canvas = document.getElementById('route-analysis-canvas');
+  if (!canvas || !mapCtx) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const bg = ctx.createLinearGradient(0, 0, w, h);
+  bg.addColorStop(0, '#ffffff');
+  bg.addColorStop(1, '#f4faf4');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+
+  const pad = 16;
+  const all = [...routeState.astar, ...routeState.dstar];
+  if (!all.length) {
+    ctx.fillStyle = '#6b7f6b';
+    ctx.font = '12px DM Sans, sans-serif';
+    ctx.fillText('Dispatch a delivery to visualize route analysis.', 18, h / 2);
+    return;
+  }
+
+  const minX = Math.min(...all.map(p => p.x));
+  const maxX = Math.max(...all.map(p => p.x));
+  const minY = Math.min(...all.map(p => p.y));
+  const maxY = Math.max(...all.map(p => p.y));
+  const spanX = Math.max(1, maxX - minX);
+  const spanY = Math.max(1, maxY - minY);
+  const scale = Math.min((w - pad * 2) / spanX, (h - pad * 2) / spanY);
+
+  const tx = p => ({ x: pad + (p.x - minX) * scale, y: h - pad - (p.y - minY) * scale });
+
+  function draw(path, color, label, dashed) {
+    if (path.length < 2) return;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    if (dashed) ctx.setLineDash([8, 5]);
+    ctx.beginPath();
+    const first = tx(path[0]);
+    ctx.moveTo(first.x, first.y);
+    path.slice(1).forEach(p => {
+      const pt = tx(p);
+      ctx.lineTo(pt.x, pt.y);
+    });
+    ctx.stroke();
+    const mid = tx(path[Math.floor(path.length / 2)]);
+    ctx.fillStyle = color;
+    ctx.font = '700 11px DM Sans, sans-serif';
+    ctx.fillText(label, mid.x + 4, mid.y - 4);
+    ctx.restore();
+  }
+
+  draw(routeState.astar, '#0ea5e9', 'A*', true);
+  draw(routeState.dstar, '#1db954', 'D*', false);
+
+  // Endpoint dots
+  const start = tx(routeState.dstar[0] || routeState.astar[0]);
+  const end   = tx((routeState.dstar[routeState.dstar.length - 1]) || routeState.astar[routeState.astar.length - 1]);
+  if (start && end) {
+    ctx.beginPath(); ctx.arc(start.x, start.y, 4, 0, Math.PI * 2); ctx.fillStyle = '#f59e0b'; ctx.fill();
+    ctx.beginPath(); ctx.arc(end.x, end.y, 4, 0, Math.PI * 2); ctx.fillStyle = '#0ea5e9'; ctx.fill();
   }
 }
 
@@ -339,14 +554,13 @@ function drawMarker(c, x, y, color, icon, label) {
   c.fillText(label, x, y + sh(20));
 }
 
-function drawRouteLine(c) {
-  const route = robotState.currentRoute;
+function drawRouteLine(c, route, ghostColor, dashColor, thin, label) {
   if (route.length < 2) return;
 
   c.save();
   // Ghost line
-  c.strokeStyle = 'rgba(29,185,84,0.15)';
-  c.lineWidth = sw(4);
+  c.strokeStyle = ghostColor;
+  c.lineWidth = thin ? sw(3) : sw(4);
   c.setLineDash([]);
   c.lineJoin = 'round';
   c.lineCap  = 'round';
@@ -356,8 +570,8 @@ function drawRouteLine(c) {
   c.stroke();
 
   // Dashed line
-  c.strokeStyle = '#1db954';
-  c.lineWidth = sw(2.5);
+  c.strokeStyle = dashColor;
+  c.lineWidth = thin ? sw(1.8) : sw(2.5);
   c.setLineDash([sw(6), sw(4)]);
   const dashOffset = (frame * 0.5) % (sw(6) + sw(4));
   c.lineDashOffset = -dashOffset;
@@ -365,6 +579,12 @@ function drawRouteLine(c) {
   c.moveTo(sx(route[0].x), sy(route[0].y));
   route.slice(1).forEach(pt => c.lineTo(sx(pt.x), sy(pt.y)));
   c.stroke();
+  if (label) {
+    const mid = route[Math.floor(route.length / 2)];
+    c.fillStyle = dashColor;
+    c.font = `700 ${Math.max(8, sw(7))}px 'DM Sans', sans-serif`;
+    c.fillText(label, sx(mid.x) + sw(4), sy(mid.y) - sh(4));
+  }
   c.setLineDash([]);
   c.restore();
 }
@@ -450,6 +670,22 @@ function buildCampusRoute(fromCoord, toCoord) {
 }
 
 // ── Public API ────────────────────────────────
+function applyAnalysis(analysis) {
+  if (!analysis) return;
+  const toPoint = p => Array.isArray(p) ? { x: p[0], y: p[1] } : { x: p.x, y: p.y };
+  routeState.astar = (analysis.astar_path || []).map(toPoint);
+  routeState.dstar = (analysis.dstar_path || []).map(toPoint);
+  routeState.metrics = {
+    astarLength: analysis.astar_length,
+    dstarLength: analysis.dstar_length,
+    astarNodes: analysis.astar_hops != null ? analysis.astar_hops + 1 : routeState.astar.length,
+    dstarNodes: analysis.dstar_hops != null ? analysis.dstar_hops + 1 : routeState.dstar.length,
+    shortestGain: analysis.shortest_gain,
+    replans: analysis.replans || 0,
+  };
+  routeState.label = analysis.label || '';
+}
+
 function startDeliveryOnMap(pickupId, destId, onComplete) {
   const pickup = CAMPUS_MAP.buildings.find(b => b.id === pickupId || b.label === pickupId || b.label.startsWith(pickupId));
   const dest   = CAMPUS_MAP.buildings.find(b => b.id === destId   || b.label === destId   || b.label.startsWith(destId));
@@ -465,13 +701,25 @@ function startDeliveryOnMap(pickupId, destId, onComplete) {
   pickupMarker = pickup ? { ...pickup, cx: pickupCoord.x, cy: pickupCoord.y } : null;
   destMarker   = dest   ? { ...dest,   cx: destCoord.x,   cy: destCoord.y   } : null;
 
-  // Route: home → pickup → destination
+  // Route: home → pickup → destination (road-only)
   const homeCoord = { x: CAMPUS_MAP.homeBase.x, y: CAMPUS_MAP.homeBase.y };
-  const legOne = buildCampusRoute(homeCoord, pickupCoord);
-  const legTwo = buildCampusRoute(pickupCoord, destCoord);
-  const legHome= buildCampusRoute(destCoord, homeCoord);
+  const legOne = planRoadRoute(homeCoord, pickupCoord);
+  const legTwo = planRoadRoute(pickupCoord, destCoord);
+  const legHome= planRoadRoute(destCoord, homeCoord);
 
-  robotState.currentRoute = legOne;
+  applyAnalysis({
+    label: `Home → Pickup`,
+    astar_path: legOne.astarPath,
+    dstar_path: legOne.dstarPath,
+    astar_length: legOne.metrics.astarLength,
+    dstar_length: legOne.metrics.dstarLength,
+    astar_hops: Math.max(0, legOne.astarPath.length - 1),
+    dstar_hops: Math.max(0, legOne.dstarPath.length - 1),
+    shortest_gain: legOne.metrics.shortestGain,
+    replans: 0,
+  });
+
+  robotState.currentRoute = legOne.dstarPath;
   robotState.routeIdx = 0;
   robotState.status = 'moving';
   updateMapBadge();
@@ -479,7 +727,19 @@ function startDeliveryOnMap(pickupId, destId, onComplete) {
   robotState.onArrive = () => {
     // Arrived at pickup — brief pause then go to dest
     setTimeout(() => {
-      robotState.currentRoute = legTwo;
+      applyAnalysis({
+        label: `Pickup → Destination`,
+        astar_path: legTwo.astarPath,
+        dstar_path: legTwo.dstarPath,
+        astar_length: legTwo.metrics.astarLength,
+        dstar_length: legTwo.metrics.dstarLength,
+        astar_hops: Math.max(0, legTwo.astarPath.length - 1),
+        dstar_hops: Math.max(0, legTwo.dstarPath.length - 1),
+        shortest_gain: legTwo.metrics.shortestGain,
+        replans: 0,
+      });
+
+      robotState.currentRoute = legTwo.dstarPath;
       robotState.routeIdx = 0;
       robotState.status = 'moving';
       updateMapBadge();
@@ -488,7 +748,19 @@ function startDeliveryOnMap(pickupId, destId, onComplete) {
         // Arrived at destination
         if (onComplete) onComplete();
         setTimeout(() => {
-          robotState.currentRoute = legHome;
+          applyAnalysis({
+            label: `Destination → Home`,
+            astar_path: legHome.astarPath,
+            dstar_path: legHome.dstarPath,
+            astar_length: legHome.metrics.astarLength,
+            dstar_length: legHome.metrics.dstarLength,
+            astar_hops: Math.max(0, legHome.astarPath.length - 1),
+            dstar_hops: Math.max(0, legHome.dstarPath.length - 1),
+            shortest_gain: legHome.metrics.shortestGain,
+            replans: 0,
+          });
+
+          robotState.currentRoute = legHome.dstarPath;
           robotState.routeIdx = 0;
           robotState.status = 'returning';
           updateMapBadge();
@@ -510,11 +782,22 @@ function startDeliveryOnMap(pickupId, destId, onComplete) {
 function recallRobotOnMap() {
   if (robotState.status === 'idle') return;
   const homeCoord = { x: CAMPUS_MAP.homeBase.x, y: CAMPUS_MAP.homeBase.y };
-  const returnRoute = buildCampusRoute(
+  const returnRoute = planRoadRoute(
     { x: robotState.x, y: robotState.y },
     homeCoord
   );
-  robotState.currentRoute = returnRoute;
+  applyAnalysis({
+    label: `Return to Home`,
+    astar_path: returnRoute.astarPath,
+    dstar_path: returnRoute.dstarPath,
+    astar_length: returnRoute.metrics.astarLength,
+    dstar_length: returnRoute.metrics.dstarLength,
+    astar_hops: Math.max(0, returnRoute.astarPath.length - 1),
+    dstar_hops: Math.max(0, returnRoute.dstarPath.length - 1),
+    shortest_gain: returnRoute.metrics.shortestGain,
+    replans: 0,
+  });
+  robotState.currentRoute = returnRoute.dstarPath;
   robotState.routeIdx = 0;
   robotState.status = 'returning';
   pickupMarker = null;
@@ -536,6 +819,10 @@ function resetMapView() {
   robotState.trail = [];
   pickupMarker = null;
   destMarker   = null;
+  routeState.astar = [];
+  routeState.dstar = [];
+  routeState.metrics = null;
+  routeState.label = '';
 }
 
 // ── Utility ───────────────────────────────────
@@ -553,4 +840,8 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 // Expose
-window.MapEngine = { initMap, startDeliveryOnMap, recallRobotOnMap, resetMapView, robotState };
+window.MapEngine = {
+  initMap, startDeliveryOnMap, recallRobotOnMap, resetMapView, applyAnalysis, robotState,
+  setPickupMarker(v) { pickupMarker = v; },
+  setDestMarker(v) { destMarker = v; },
+};

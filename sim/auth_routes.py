@@ -6,6 +6,7 @@
 # /auth/me
 # ═══════════════════════════════════════════════
 
+import asyncio
 import random
 import string
 from datetime import datetime, timedelta
@@ -118,11 +119,11 @@ async def register(req: RegisterReq):
         "created_at":    datetime.utcnow(),
     })
 
-    sent = email_service.send_otp(req.email, req.name.strip(), otp, "register")
+    sent = await asyncio.to_thread(email_service.send_otp, req.email, req.name.strip(), otp, "register")
     return {
         "ok": True,
         "message": "OTP sent to your email" if sent else "Account created (email not configured — OTP printed to server console)",
-        "dev_otp": otp if not sent else None,   # shown only if email is not configured
+        "dev_otp": otp if not sent else None,
         "masked_email": _mask_email(req.email),
     }
 
@@ -167,7 +168,7 @@ async def login(req: LoginReq):
         {"email": req.email.lower()},
         {"$set": {"otp": otp, "otp_expiry": _otp_expiry(), "otp_purpose": "login"}},
     )
-    sent = email_service.send_otp(req.email, user["name"], otp, "login")
+    sent = await asyncio.to_thread(email_service.send_otp, req.email, user["name"], otp, "login")
     return {
         "ok": True,
         "message": "OTP sent — check your email",
@@ -219,7 +220,7 @@ async def forgot_password(req: ForgotPasswordReq):
         {"email": req.email.lower()},
         {"$set": {"otp": otp, "otp_expiry": _otp_expiry(), "otp_purpose": "reset"}},
     )
-    sent = email_service.send_otp(req.email, user["name"], otp, "reset")
+    sent = await asyncio.to_thread(email_service.send_otp, req.email, user["name"], otp, "reset")
     return {
         "ok": True,
         "message": "Password reset OTP sent to your email",
@@ -271,7 +272,7 @@ async def resend_otp(req: ResendOTPReq):
         {"email": req.email.lower()},
         {"$set": {"otp": otp, "otp_expiry": _otp_expiry(), "otp_purpose": req.purpose}},
     )
-    sent = email_service.send_otp(req.email, user["name"], otp, req.purpose)
+    sent = await asyncio.to_thread(email_service.send_otp, req.email, user["name"], otp, req.purpose)
     return {
         "ok": True,
         "dev_otp": otp if not sent else None,

@@ -98,33 +98,129 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:var(--fo
 .stat-lbl{font-size:8px;color:var(--dim);letter-spacing:1px;margin-top:2px}
 
 /* ── Lock overlay ── */
-#lock-overlay{display:none;position:absolute;inset:0;background:rgba(4,9,10,.88);
-  backdrop-filter:blur(6px);z-index:20;align-items:center;justify-content:center;flex-direction:column;gap:0}
-#lock-overlay.show{display:flex}
-.lock-box{background:var(--panel);border-radius:14px;padding:28px 32px;text-align:center;max-width:340px;width:90%}
-.lock-box.pickup{border:2px solid rgba(59,130,246,.5);box-shadow:0 0 40px rgba(59,130,246,.15)}
-.lock-box.delivery{border:2px solid rgba(239,68,68,.5);box-shadow:0 0 40px rgba(239,68,68,.15)}
-.lock-icon{font-size:40px;margin-bottom:10px}
-.lock-title{font-family:var(--disp);font-size:18px;font-weight:800;color:#fff;margin-bottom:4px}
-.lock-sub{font-size:10px;letter-spacing:2px;margin-bottom:16px}
+#lock-overlay{display:none;position:absolute;inset:0;background:rgba(2,6,4,.92);
+  backdrop-filter:blur(12px);z-index:20;align-items:center;justify-content:center;flex-direction:column;gap:0}
+#lock-overlay.show{display:flex;animation:lockOverlayIn .3s ease}
+@keyframes lockOverlayIn{from{opacity:0}to{opacity:1}}
+.lock-box{background:linear-gradient(145deg,#080f09,#060c07);border-radius:20px;padding:32px 36px;text-align:center;max-width:360px;width:92%;position:relative;overflow:hidden}
+.lock-box::before{content:'';position:absolute;inset:0;border-radius:20px;opacity:.4;pointer-events:none}
+.lock-box.pickup{border:1.5px solid rgba(59,130,246,.55);box-shadow:0 0 60px rgba(59,130,246,.18),0 20px 60px rgba(0,0,0,.6)}
+.lock-box.pickup::before{background:radial-gradient(ellipse at 50% 0%,rgba(59,130,246,.12),transparent 70%)}
+.lock-box.delivery{border:1.5px solid rgba(239,68,68,.5);box-shadow:0 0 60px rgba(239,68,68,.15),0 20px 60px rgba(0,0,0,.6)}
+.lock-box.delivery::before{background:radial-gradient(ellipse at 50% 0%,rgba(239,68,68,.1),transparent 70%)}
+.lock-icon{font-size:46px;margin-bottom:12px;display:block;animation:lockIconPop .4s cubic-bezier(.16,1,.3,1)}
+@keyframes lockIconPop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
+.lock-title{font-family:var(--disp);font-size:20px;font-weight:800;color:#fff;margin-bottom:3px;letter-spacing:-.3px}
+.lock-sub{font-size:9px;letter-spacing:2.5px;margin-bottom:18px;text-transform:uppercase}
 .lock-sub.pickup-sub{color:var(--blue)}.lock-sub.delivery-sub{color:var(--red)}
-.lock-item{background:rgba(29,185,84,.06);border:1px solid var(--border);border-radius:6px;
-  padding:8px 12px;margin-bottom:14px;font-size:11px;color:var(--txt)}
-.digits{display:flex;gap:8px;justify-content:center;margin-bottom:12px}
-.digit{width:42px;height:50px;text-align:center;font-size:22px;font-weight:700;border-radius:8px;
-  font-family:var(--font);color:#fff;background:rgba(255,255,255,.05);outline:none;border:2px solid}
-.digit.pickup-digit{border-color:rgba(59,130,246,.35)}.digit.pickup-digit:focus{border-color:var(--blue)}
-.digit.delivery-digit{border-color:rgba(239,68,68,.35)}.digit.delivery-digit:focus{border-color:var(--red)}
-.lock-err{font-size:10px;color:var(--red);min-height:14px;margin-bottom:8px}
-.unlock-btn{width:100%;padding:11px;border-radius:8px;font-family:var(--font);font-size:12px;font-weight:700;
-  cursor:pointer;letter-spacing:1px;transition:all .18s;border:1px solid}
-.unlock-btn.pickup-btn{background:rgba(59,130,246,.12);color:var(--blue);border-color:rgba(59,130,246,.35)}
-.unlock-btn.pickup-btn:hover{background:rgba(59,130,246,.22)}
-.unlock-btn.delivery-btn{background:rgba(239,68,68,.12);color:var(--red);border-color:rgba(239,68,68,.35)}
-.unlock-btn.delivery-btn:hover{background:rgba(239,68,68,.22)}
+.lock-item{background:rgba(29,185,84,.06);border:1px solid var(--border);border-radius:8px;
+  padding:9px 14px;margin-bottom:16px;font-size:11px;color:var(--txt);letter-spacing:.5px}
+.digits{display:flex;gap:7px;justify-content:center;margin-bottom:10px}
+.digit{width:44px;height:54px;text-align:center;font-size:24px;font-weight:700;border-radius:10px;
+  font-family:var(--font);color:#fff;background:rgba(255,255,255,.04);outline:none;border:2px solid;transition:border-color .15s,background .15s}
+.digit:focus{background:rgba(255,255,255,.08)}
+.digit.pickup-digit{border-color:rgba(59,130,246,.3)}.digit.pickup-digit:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.digit.delivery-digit{border-color:rgba(239,68,68,.3)}.digit.delivery-digit:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(239,68,68,.12)}
+.lock-err{font-size:10px;color:var(--red);min-height:15px;margin-bottom:8px;letter-spacing:.5px}
+.unlock-btn{width:100%;padding:13px;border-radius:10px;font-family:var(--font);font-size:12px;font-weight:700;
+  cursor:pointer;letter-spacing:1.5px;transition:all .2s;border:1.5px solid;position:relative;overflow:hidden}
+.unlock-btn::after{content:'';position:absolute;inset:0;background:rgba(255,255,255,0);transition:background .2s}
+.unlock-btn:hover::after{background:rgba(255,255,255,.06)}
+.unlock-btn.pickup-btn{background:rgba(59,130,246,.1);color:var(--blue);border-color:rgba(59,130,246,.35)}
+.unlock-btn.delivery-btn{background:rgba(239,68,68,.1);color:var(--red);border-color:rgba(239,68,68,.35)}
 
 ::-webkit-scrollbar{width:3px}
 ::-webkit-scrollbar-thumb{background:var(--faint);border-radius:99px}
+
+/* ── Mobile layout ── */
+@media (max-width:768px){
+  html,body{overflow:auto;height:auto}
+  .shell{
+    grid-template-columns:1fr;
+    grid-template-rows:46px 56vw auto auto;
+    height:auto;min-height:100vh;overflow:visible;
+  }
+  .topbar{padding:0 12px}
+  .logo-name{font-size:14px}
+  .logo-sub{display:none}
+  .conn-wrap{gap:6px}
+  .conn-txt{display:none}
+  .controls .btn{padding:5px 10px;font-size:9px}
+  /* Map — fixed height on mobile */
+  .map-zone{height:56vw;min-height:220px;max-height:320px;overflow:hidden}
+  #cv{width:100%;height:100%}
+  .hud-chip{font-size:8px;padding:3px 8px}
+  #algo-badge{font-size:9px;padding:4px 10px}
+  /* Sidebar — horizontal scroll strip */
+  .sidebar{
+    border-left:none;border-top:1px solid var(--faint);
+    flex-direction:row;flex-wrap:nowrap;overflow-x:auto;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none;
+    max-height:none;height:auto;
+    background:var(--panel);
+  }
+  .sidebar::-webkit-scrollbar{display:none}
+  .sb-sec{
+    flex:0 0 200px;min-width:180px;border-bottom:none;
+    border-right:1px solid var(--faint);padding:10px 12px;
+  }
+  .sb-sec:last-child{border-right:none}
+  .legend{flex-wrap:nowrap;overflow-x:auto;padding:8px 12px;
+    flex:0 0 auto;min-width:260px;gap:8px 10px;
+  }
+  /* Bottom bar — compact on mobile */
+  .bottom{flex-direction:column;max-height:140px}
+  .log-section{padding:6px 12px;overflow:hidden}
+  .log-line{font-size:9px}
+  .stats-section{
+    width:100%;border-left:none;border-top:1px solid var(--faint);
+    padding:6px 12px;
+  }
+  .stat-grid{grid-template-columns:repeat(4,1fr);gap:4px}
+  .stat-card{padding:5px 6px}
+  .stat-val{font-size:13px}
+  .stat-lbl{font-size:7px}
+  /* Compartment banner — full width at bottom */
+  #comp-banner{
+    bottom:0;left:0;right:0;
+    transform:none;
+    border-radius:16px 16px 0 0;
+    min-width:unset;max-width:100%;
+    padding:14px 18px 20px;
+  }
+  #comp-banner.show{animation:_mobileCompIn .35s cubic-bezier(.16,1,.3,1)}
+  @keyframes _mobileCompIn{from{opacity:0;transform:translateY(100%)}to{opacity:1;transform:translateY(0)}}
+  /* Lock overlay — full height on mobile */
+  .lock-box{padding:24px 20px;max-width:100%;border-radius:16px}
+  .digit{width:38px;height:46px;font-size:20px;border-radius:8px}
+  .digits{gap:5px}
+  /* AI bars */
+  .ai-row{gap:4px}
+  .ai-lbl{width:50px;font-size:8px}
+  .ai-val{font-size:8px;min-width:24px}
+}
+
+/* ── Compartment countdown banner ── */
+#comp-banner{
+  position:absolute;bottom:20px;left:50%;transform:translateX(-50%);
+  z-index:30;display:none;align-items:center;gap:14px;
+  background:rgba(4,9,10,0.97);border-radius:16px;padding:14px 22px 12px;
+  min-width:360px;max-width:90%;
+  backdrop-filter:blur(10px);
+  box-shadow:0 12px 48px rgba(0,0,0,0.6);
+}
+#comp-banner.show{display:flex;animation:compIn .35s cubic-bezier(.16,1,.3,1)}
+@keyframes compIn{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.comp-icon{font-size:32px;flex-shrink:0}
+.comp-body{flex:1;min-width:0}
+.comp-title{font-size:13px;font-weight:700;color:#fff;letter-spacing:.4px;margin-bottom:2px}
+.comp-action{font-size:10px;letter-spacing:2px;margin-bottom:9px}
+.comp-track{height:4px;background:rgba(255,255,255,0.07);border-radius:99px;overflow:hidden}
+.comp-fill{height:100%;border-radius:99px;transition:width 1s linear,background .5s}
+.comp-timer{font-size:15px;font-weight:700;min-width:46px;text-align:right;letter-spacing:.5px}
+.comp-hint{font-size:9px;color:rgba(255,255,255,0.25);letter-spacing:1.5px;margin-top:5px}
+.comp-close{background:none;border:none;color:rgba(255,255,255,0.25);cursor:pointer;font-size:18px;padding:4px 2px;line-height:1;transition:color .2s;flex-shrink:0}
+.comp-close:hover{color:rgba(255,255,255,0.7)}
 </style>
 </head>
 <body>
@@ -169,6 +265,21 @@ html,body{height:100%;background:var(--bg);color:var(--txt);font-family:var(--fo
       <div class="lock-err" id="lock-err"></div>
       <button class="unlock-btn" id="unlock-btn" onclick="doUnlock()">🔓 UNLOCK</button>
     </div>
+  <!-- Compartment countdown banner -->
+  <div id="comp-banner">
+    <div class="comp-icon" id="comp-icon">📦</div>
+    <div class="comp-body">
+      <div class="comp-title">Compartment is <span id="comp-open-label" style="color:#3b82f6">OPEN</span></div>
+      <div class="comp-action" id="comp-action">PLEASE LOAD THE PACKAGE</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="comp-track" style="flex:1"><div class="comp-fill" id="comp-fill" style="width:100%;background:#3b82f6"></div></div>
+        <div class="comp-timer" id="comp-timer" style="color:#3b82f6">5:00</div>
+      </div>
+      <div class="comp-hint">AUTO-CLOSES AFTER TIMER — ACT NOW</div>
+    </div>
+    <button class="comp-close" onclick="clearCompBanner()">✕</button>
+  </div>
+
   </div>
 </div>
 
@@ -361,10 +472,12 @@ let lockMode = null; // 'pickup' | 'delivery'
 
 // ── WebSocket ────────────────────────────────────────────
 const _LOC = ['localhost','127.0.0.1',''].includes(location.hostname);
-const _HOST = _LOC ? 'localhost:8000' : 'replace-detest-recycling.ngrok-free.dev';
+window.DELIVERYBOT_BACKEND = window.DELIVERYBOT_BACKEND
+  || (_LOC ? 'localhost:8001' : 'replace-detest-recycling.ngrok-free.dev');
+const _HOST = window.DELIVERYBOT_BACKEND;
 const WS   = `ws${_LOC?'':'s'}://${_HOST}/ws`;
 const API_BASE = `http${_LOC?'':'s'}://${_HOST}`;
-let ws, reconnT;
+let ws, reconnT, pollT;
 
 function connect() {
   try { ws = new WebSocket(WS); } catch { sched(); return; }
@@ -377,8 +490,8 @@ function connect() {
       if      (m.type === 'state')             { state = m; }
       else if (m.type === 'pickup_lock')        showLock('pickup', m);
       else if (m.type === 'delivery_lock')      showLock('delivery', m);
-      else if (m.type === 'pickup_unlocked')    { hideLock(); log('✓ Pickup unlocked — robot proceeding','info'); }
-      else if (m.type === 'delivery_unlocked')  { hideLock(); log('✓ Package collected — delivery complete','info'); }
+      else if (m.type === 'pickup_unlocked')    { hideLock(); clearCompBanner(); log('✓ Pickup unlocked — robot proceeding','info'); }
+      else if (m.type === 'delivery_unlocked')  { hideLock(); clearCompBanner(); log('✓ Package collected — delivery complete','info'); }
       else if (m.type === 'pickup_unlock_error'){ lockErr(m.message); log('✗ Pickup OTP failed: '+m.message,'err'); }
       else if (m.type === 'unlock_error')       { lockErr(m.message); log('✗ Delivery OTP failed: '+m.message,'err'); }
     } catch {}
@@ -386,6 +499,24 @@ function connect() {
 }
 function sched(){ clearTimeout(reconnT); reconnT = setTimeout(connect,3000); }
 function send(o){ if(ws && ws.readyState===1) ws.send(JSON.stringify(o)); }
+
+function startPolling() {
+  if (pollT) return;
+  const tick = async () => {
+    try {
+      const r = await fetch(`${API_BASE}/robot/full`, {
+        headers: { 'ngrok-skip-browser-warning':'true' }
+      });
+      if (!r.ok) throw new Error('poll failed');
+      state = await r.json();
+      if (!connected) setConn(true);
+    } catch {
+      if (!ws || ws.readyState !== 1) setConn(false);
+    }
+  };
+  tick();
+  pollT = setInterval(tick, 1500);
+}
 
 function setConn(on) {
   connected = on;
@@ -398,8 +529,8 @@ function setConn(on) {
 }
 
 // ── Commands ─────────────────────────────────────────────
-function cmdRecall(){ send({type:'recall'}); log('↩ Robot recall requested','warn'); }
-function cmdStop()  { send({type:'estop'});  log('■ EMERGENCY STOP activated','err'); }
+function cmdRecall(){ send({cmd:'recall'}); log('↩ Robot recall requested','warn'); }
+function cmdStop()  { send({cmd:'estop'});  log('■ EMERGENCY STOP activated','err'); }
 
 // ── Lock overlay ─────────────────────────────────────────
 function showLock(mode, m) {
@@ -426,6 +557,7 @@ function showLock(mode, m) {
   over.classList.add('show');
   wireDigits();
   log((isPickup?'📦 Robot at pickup — enter OTP to load':'🔒 Package arrived — enter OTP to collect'),'blue');
+  showCompBanner(mode, 300);
 }
 function wireDigits() {
   for(let i=0;i<6;i++){
@@ -442,6 +574,53 @@ function wireDigits() {
 }
 function hideLock(){ document.getElementById('lock-overlay').classList.remove('show'); lockMode=null; }
 function lockErr(msg){ document.getElementById('lock-err').textContent = msg||'Invalid OTP'; }
+
+// ── Compartment countdown banner ─────────────────────────────────────
+let _compTimer = null;
+function showCompBanner(mode, totalSec = 300) {
+  clearCompBanner();
+  const isPickup = mode === 'pickup';
+  const color    = isPickup ? '#3b82f6' : '#10b981';
+  const icon     = isPickup ? '📦' : '🔓';
+  const action   = isPickup ? 'PLEASE LOAD THE PACKAGE' : 'PLEASE COLLECT YOUR PACKAGE';
+
+  const banner = document.getElementById('comp-banner');
+  document.getElementById('comp-icon').textContent   = icon;
+  document.getElementById('comp-open-label').style.color = color;
+  document.getElementById('comp-action').textContent = action;
+  document.getElementById('comp-action').style.color = color;
+  document.getElementById('comp-fill').style.background = color;
+  document.getElementById('comp-fill').style.width = '100%';
+  document.getElementById('comp-timer').style.color = color;
+  document.getElementById('comp-timer').textContent = '5:00';
+  banner.style.border = `1px solid ${color}55`;
+  banner.style.boxShadow = `0 12px 48px rgba(0,0,0,0.6), 0 0 40px ${color}18`;
+  banner.classList.add('show');
+
+  let remaining = totalSec;
+  _compTimer = setInterval(() => {
+    remaining--;
+    const pct = (remaining / totalSec) * 100;
+    const min = Math.floor(remaining / 60);
+    const sec = remaining % 60;
+    const fill  = document.getElementById('comp-fill');
+    const timer = document.getElementById('comp-timer');
+    if (fill)  fill.style.width = pct + '%';
+    if (timer) {
+      timer.textContent = `${min}:${String(sec).padStart(2,'0')}`;
+      if (remaining <= 60) {
+        timer.style.color = '#ef4444';
+        if (fill) fill.style.background = '#ef4444';
+      }
+    }
+    if (remaining <= 0) clearCompBanner();
+  }, 1000);
+}
+function clearCompBanner() {
+  clearInterval(_compTimer); _compTimer = null;
+  const b = document.getElementById('comp-banner');
+  if (b) b.classList.remove('show');
+}
 async function doUnlock() {
   const otp = Array(6).fill(0).map((_,i)=>document.getElementById('ld'+i)?.value||'').join('');
   if(otp.length!==6){ lockErr('Enter all 6 digits'); return; }
@@ -742,30 +921,103 @@ function drawPath(path) {
   ctx.restore();
 }
 
+function drawAnalysisPath(path, color, dashed, label) {
+  if(!path||path.length<2) return;
+  // Python sends paths as [[x,y],...] arrays; handle both array and {x,y} object formats
+  const gx = p => X(Array.isArray(p) ? p[0] : p.x);
+  const gy = p => Y(Array.isArray(p) ? p[1] : p.y);
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = S(2.2);
+  ctx.setLineDash(dashed ? [S(8),S(6)] : []);
+  const dashOff = -(animT*2) % S(20);
+  if (dashed) ctx.lineDashOffset = dashOff;
+  ctx.beginPath();
+  path.forEach((p,i)=> i===0 ? ctx.moveTo(gx(p),gy(p)) : ctx.lineTo(gx(p),gy(p)));
+  ctx.stroke();
+
+  if (label) {
+    const mid = path[Math.floor(path.length / 2)];
+    ctx.fillStyle = color;
+    ctx.font = `700 ${S(8)}px JetBrains Mono`;
+    ctx.fillText(label, gx(mid) + S(4), gy(mid) - S(4));
+  }
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
 // ── LIDAR ─────────────────────────────────────────────────
 // pt.x, pt.y are the actual map-coords of the hit point (computed by Python)
-// pt.angle is in radians, y-down convention (matches canvas)
 function drawLidar(rx, ry, points) {
   if(!points||!points.length) return;
   ctx.save();
   const orx = X(rx), ory = Y(ry);
+
+  // Multiple range rings for depth context
+  [0.33, 0.66, 1.0].forEach((f, i) => {
+    ctx.strokeStyle = `rgba(29,185,84,${0.04 + i*0.03})`;
+    ctx.lineWidth = S(0.5);
+    ctx.setLineDash([S(2), S(6)]);
+    ctx.beginPath(); ctx.arc(orx, ory, X(90)*f, 0, Math.PI*2); ctx.stroke();
+  });
+  ctx.setLineDash([]);
+
+  // LIDAR rays
   points.forEach(pt=>{
     const ex = X(pt.x), ey = Y(pt.y);
     const hit = pt.hit;
     const typ = pt.type || 'none';
-    const hitCol = typ==='vehicle'?'rgba(251,146,60,0.9)':typ==='person'?'rgba(168,85,247,0.9)':'rgba(239,68,68,0.85)';
-    ctx.strokeStyle = hit ? (typ==='building'?'rgba(239,68,68,0.4)':'rgba(239,68,68,0.6)') : 'rgba(29,185,84,0.08)';
-    ctx.lineWidth   = hit ? S(0.7) : S(0.4);
+    if (hit) {
+      ctx.strokeStyle = typ==='building' ? 'rgba(239,68,68,0.3)' : 'rgba(239,68,68,0.55)';
+      ctx.lineWidth = S(0.6);
+    } else {
+      ctx.strokeStyle = 'rgba(29,185,84,0.05)';
+      ctx.lineWidth = S(0.35);
+    }
     ctx.beginPath(); ctx.moveTo(orx, ory); ctx.lineTo(ex, ey); ctx.stroke();
+
     if(hit){
+      const hitCol = typ==='vehicle'?'rgba(251,146,60,0.95)':typ==='person'?'rgba(168,85,247,0.95)':'rgba(239,68,68,0.8)';
+      // Glow ring for dynamic objects
+      if(typ==='vehicle'||typ==='person'){
+        ctx.strokeStyle = hitCol.replace('0.95)', '0.3)');
+        ctx.lineWidth = S(2);
+        ctx.beginPath(); ctx.arc(ex, ey, S(5), 0, Math.PI*2); ctx.stroke();
+      }
       ctx.fillStyle = hitCol;
-      ctx.beginPath(); ctx.arc(ex, ey, S(2.5), 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ex, ey, typ==='building'?S(1.5):S(2.8), 0, Math.PI*2); ctx.fill();
     }
   });
-  // Range ring
-  ctx.strokeStyle='rgba(29,185,84,0.06)'; ctx.lineWidth=S(0.5); ctx.setLineDash([S(2),S(5)]);
-  ctx.beginPath(); ctx.arc(orx, ory, X(90), 0, Math.PI*2); ctx.stroke();
-  ctx.setLineDash([]);
+
+  // Deduplicated object labels + detection rings
+  const labeled = new Set();
+  points.forEach(pt => {
+    if(!pt.hit) return;
+    const typ = pt.type || 'none';
+    if(typ==='building'||typ==='none') return;
+    const cell = `${Math.round((pt.x-rx)/12)},${Math.round((pt.y-ry)/12)}`;
+    if(labeled.has(cell)) return;
+    labeled.add(cell);
+
+    const dist  = Math.round(Math.sqrt((pt.x-rx)**2+(pt.y-ry)**2));
+    const ex    = X(pt.x), ey = Y(pt.y);
+    const col   = typ==='vehicle' ? 'rgba(251,146,60,0.95)' : 'rgba(168,85,247,0.95)';
+    const lbl   = typ==='vehicle' ? '▣ VEH' : '◉ PED';
+    const pulse = (Math.sin(animT*0.15)+1)/2;
+
+    // Dashed detection ring
+    ctx.strokeStyle = col.replace('0.95)', `${0.3+pulse*0.2})`);
+    ctx.lineWidth = S(1.5); ctx.setLineDash([S(3), S(2)]);
+    ctx.beginPath(); ctx.arc(ex, ey, S(9)+pulse*S(2), 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Distance + type label
+    ctx.fillStyle = col;
+    ctx.font = `bold ${S(7.5)}px JetBrains Mono, monospace`;
+    ctx.textAlign = 'left';
+    ctx.fillText(`${lbl} ${dist}u`, ex + S(6), ey - S(3));
+  });
+
   ctx.restore();
 }
 
@@ -800,12 +1052,13 @@ function drawMarker(x, y, label, col, pulse) {
 }
 
 // ── Obstacles ─────────────────────────────────────────────
-// Client-side bikes (visual only, follow roads)
+// Client-side bikes — road centres: H y=97,197,277,357  V x=127,247,377,507,627
+// Slow-motion speeds (0.001 multiplier in updateBikes gives ~0.3–0.4 units/frame)
 const BIKE_ROUTES = [
-  {pts:[{x:10,y:151},{x:760,y:151}],spd:1.8,pos:0.1,dir:1,col:'#fbbf24'},
-  {pts:[{x:760,y:281},{x:10,y:281}], spd:1.4,pos:0.5,dir:1,col:'#fbbf24'},
-  {pts:[{x:171,y:0},{x:171,y:400}], spd:1.6,pos:0.3,dir:1,col:'#fbbf24'},
-  {pts:[{x:391,y:400},{x:391,y:0}], spd:1.2,pos:0.7,dir:1,col:'#fbbf24'},
+  {pts:[{x: 10,y: 97},{x:750,y: 97}], spd:0.35,pos:0.1,dir:1,col:'#fbbf24'}, // Main Road →
+  {pts:[{x:750,y:197},{x: 10,y:197}], spd:0.28,pos:0.5,dir:1,col:'#fbbf24'}, // Ring Road ←
+  {pts:[{x:127,y:  5},{x:127,y:395}], spd:0.32,pos:0.3,dir:1,col:'#fbbf24'}, // V-road 1  ↓
+  {pts:[{x:377,y:395},{x:377,y:  5}], spd:0.25,pos:0.7,dir:1,col:'#fbbf24'}, // V-road 3  ↑
 ];
 function updateBikes() {
   BIKE_ROUTES.forEach(b=>{
@@ -839,9 +1092,23 @@ function drawBike(b) {
 }
 
 const _obsAngles = {};
-function drawVehicle(obs) {
+function drawVehicle(obs, detected=false) {
   const px=X(obs.x), py=Y(obs.y);
   const r =S(obs.radius||10);
+
+  // Detection highlight ring when seen by LIDAR
+  if(detected){
+    const pulse=(Math.sin(animT*0.18)+1)/2;
+    ctx.strokeStyle=`rgba(251,146,60,${0.35+pulse*0.3})`;
+    ctx.lineWidth=S(2);
+    ctx.setLineDash([S(4),S(3)]);
+    ctx.beginPath(); ctx.arc(px,py,r+S(5)+pulse*S(3),0,Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+    // Corner threat indicator
+    ctx.fillStyle=`rgba(251,146,60,${0.6+pulse*0.3})`;
+    ctx.font=`bold ${S(8)}px JetBrains Mono`;ctx.textAlign='center';
+    ctx.fillText('⚠',px,py-r-S(4));
+  }
   // Estimate direction from position change across frames
   const key = obs.x.toFixed(0)+','+obs.y.toFixed(0);
   const prev= _obsAngles['_prev_'+obs.type+'_'+(obs.x*10).toFixed(0)];
@@ -871,9 +1138,19 @@ function drawVehicle(obs) {
   ctx.restore();
 }
 
-function drawPedestrian(obs, t) {
+function drawPedestrian(obs, detected=false) {
   const px=X(obs.x), py=Y(obs.y);
   const r =S(obs.radius||6);
+
+  // Detection ring when seen by LIDAR
+  if(detected){
+    const pulse=(Math.sin(animT*0.2)+1)/2;
+    ctx.strokeStyle=`rgba(168,85,247,${0.4+pulse*0.3})`;
+    ctx.lineWidth=S(1.5);
+    ctx.setLineDash([S(3),S(2)]);
+    ctx.beginPath(); ctx.arc(px,py,r+S(6)+pulse*S(2.5),0,Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
   const bob=Math.sin(animT*0.25)*S(1.5);
   ctx.save(); ctx.translate(px,py+bob);
   // Body shadow
@@ -980,8 +1257,14 @@ function frame() {
   // Trail
   drawTrail(s.trail||[]);
 
-  // D* planned path
-  drawPath(s.path||[]);
+  // Route overlays from backend analysis
+  if (s.analysis && s.analysis.astar_path && s.analysis.dstar_path) {
+    drawAnalysisPath(s.analysis.astar_path, 'rgba(59,130,246,0.9)', true, 'A*');
+    drawAnalysisPath(s.analysis.dstar_path, 'rgba(29,185,84,0.95)', false, 'D*');
+  } else {
+    // D* planned path fallback
+    drawPath(s.path||[]);
+  }
 
   // LIDAR
   drawLidar(r.x||HOME_X, r.y||HOME_Y, (s.lidar||{}).points||[]);
@@ -994,10 +1277,18 @@ function frame() {
   // Dest marker
   if(s.dest)   drawMarker(s.dest.x,  s.dest.y,  'D','rgba(239,68,68,1)', true);
 
-  // Backend obstacles
+  // Compute LIDAR-detected obstacle positions
+  const _lidarHits = new Set();
+  ((s.lidar||{}).points||[]).forEach(pt=>{
+    if(pt.hit && (pt.type==='vehicle'||pt.type==='person'))
+      _lidarHits.add(`${Math.round(pt.x/10)},${Math.round(pt.y/10)}`);
+  });
+
+  // Backend obstacles — pass detected flag for visual indicator
   (s.obstacles||[]).forEach(obs=>{
-    if(obs.type==='vehicle') drawVehicle(obs);
-    else drawPedestrian(obs);
+    const det = _lidarHits.has(`${Math.round(obs.x/10)},${Math.round(obs.y/10)}`);
+    if(obs.type==='vehicle') drawVehicle(obs, det);
+    else drawPedestrian(obs, det);
   });
 
   // Client-side bikes
@@ -1014,6 +1305,7 @@ function frame() {
 window.addEventListener('load', ()=>{
   initCanvas();
   connect();
+  startPolling();
   requestAnimationFrame(frame);
   log('DeliveryBot simulation viewer started','info');
   log(`Connecting to ${WS}`,'warn');

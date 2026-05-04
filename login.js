@@ -6,9 +6,10 @@
 'use strict';
 
 const _IS_LOCAL = ['localhost', '127.0.0.1', ''].includes(location.hostname);
-const API = _IS_LOCAL
-  ? 'http://localhost:8000'
-  : 'https://replace-detest-recycling.ngrok-free.dev';
+window.DELIVERYBOT_BACKEND = window.DELIVERYBOT_BACKEND || (
+  _IS_LOCAL ? 'localhost:8001' : 'replace-detest-recycling.ngrok-free.dev'
+);
+const API = `${_IS_LOCAL ? 'http' : 'https'}://${window.DELIVERYBOT_BACKEND}`;
 
 // ── State ─────────────────────────────────────
 let pendingAuth = {
@@ -383,7 +384,7 @@ async function apiFetch(path, method, body) {
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch {
-    throw new Error('Cannot reach server — is the Python backend running?');
+    throw new Error(`Cannot reach server at ${API} — is the Python backend running?`);
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
